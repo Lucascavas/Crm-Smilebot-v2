@@ -1448,6 +1448,31 @@
                                                         <strong>🔄 Rotação:</strong> ${auto.whatsapp_messages.length} ${auto.whatsapp_messages.length === 1 ? 'mensagem' : 'mensagens'} alternadas
                                                     </p>
                                                 ` : ''}
+                                                ${(() => {
+                                                    try {
+                                                        const attachments = auto.whatsapp_attachments ? JSON.parse(auto.whatsapp_attachments) : [];
+                                                        const hasAttachments = attachments.some(att => att.type);
+                                                        if (hasAttachments) {
+                                                            const types = attachments.filter(att => att.type).map(att => {
+                                                                const icons = {
+                                                                    'image': '🖼️',
+                                                                    'video': '🎥',
+                                                                    'document': '📄',
+                                                                    'audio': '🎵',
+                                                                    'location': '📍',
+                                                                    'contact': '👤'
+                                                                };
+                                                                return icons[att.type] || '📎';
+                                                            }).join(' ');
+                                                            return `
+                                                                <p class="small-text mb-1" style="color: #14532d;">
+                                                                    <strong>📎 Anexos:</strong> ${types}
+                                                                </p>
+                                                            `;
+                                                        }
+                                                    } catch (e) {}
+                                                    return '';
+                                                })()}
                                                 ${auto.enable_delays ? `
                                                     <p class="small-text" style="color: #14532d;">
                                                         <strong>⏱️ Anti-Bloqueio:</strong> Ativo • Atraso: ${auto.delay_before_min}-${auto.delay_before_max}s inicial • ${auto.delay_between_min}-${auto.delay_between_max}s entre envios • Limite: ${auto.messages_per_hour || '30'} msgs/hora
@@ -1753,7 +1778,7 @@
                                     </p>
                                     <p class="small-text" style="color: #14532d;">
                                         Use variáveis: <code>{nome}</code>, <code>{empresa}</code>, <code>{email}</code>, <code>{phone}</code><br>
-                                        <strong>💡 Rotação:</strong> As mensagens serão alternadas automaticamente para cada lead
+                                        <strong>�� Rotação:</strong> As mensagens serão alternadas automaticamente para cada lead
                                     </p>
                                 </div>
 
@@ -1779,7 +1804,19 @@
                                     <div id="whatsapp-messages-container" class="space-y-3">
                                         ${(() => {
                                             const messages = data.whatsapp_messages || [data.whatsapp_message || ''];
-                                            return messages.slice(0, 5).map((msg, index) => `
+                                            let attachments = [];
+                                            try {
+                                                attachments = data.whatsapp_attachments ? 
+                                                    (typeof data.whatsapp_attachments === 'string' ? 
+                                                        JSON.parse(data.whatsapp_attachments) : 
+                                                        data.whatsapp_attachments) : 
+                                                    [];
+                                            } catch (e) {
+                                                attachments = [];
+                                            }
+                                            return messages.slice(0, 5).map((msg, index) => {
+                                                const attachment = attachments[index] || {};
+                                                return `
                                                 <div class="message-item p-3 rounded-lg" style="background: ${config.secondary_surface || defaultConfig.secondary_surface}; border: 1px solid #e2e8f0;">
                                                     <div class="flex items-center justify-between mb-2">
                                                         <span class="small-text font-semibold" style="color: ${textColor};">Mensagem ${index + 1}</span>
@@ -1790,8 +1827,109 @@
                                                         rows="4" 
                                                         placeholder="Ex: Olá {nome}! Bem-vindo à {empresa}..."
                                                         style="color: ${textColor};">${msg || ''}</textarea>
+                                                    
+                                                    <div class="mt-3 pt-3 border-t border-gray-300">
+                                                        <label class="block small-text font-semibold mb-2" style="color: ${textColor};">📎 Anexos (Opcional)</label>
+                                                        
+                                                        <div class="grid grid-cols-2 gap-2 mb-3">
+                                                            <button type="button" onclick="toggleAttachmentType(${index}, 'image')" class="attachment-type-btn p-2 rounded text-center small-text" data-type="image" data-index="${index}" style="background: ${attachment.type === 'image' ? actionPrimary : 'white'}; color: ${attachment.type === 'image' ? 'white' : textColor}; border: 1px solid #e2e8f0;">
+                                                                🖼️ Imagem
+                                                            </button>
+                                                            <button type="button" onclick="toggleAttachmentType(${index}, 'video')" class="attachment-type-btn p-2 rounded text-center small-text" data-type="video" data-index="${index}" style="background: ${attachment.type === 'video' ? actionPrimary : 'white'}; color: ${attachment.type === 'video' ? 'white' : textColor}; border: 1px solid #e2e8f0;">
+                                                                🎥 Vídeo
+                                                            </button>
+                                                            <button type="button" onclick="toggleAttachmentType(${index}, 'document')" class="attachment-type-btn p-2 rounded text-center small-text" data-type="document" data-index="${index}" style="background: ${attachment.type === 'document' ? actionPrimary : 'white'}; color: ${attachment.type === 'document' ? 'white' : textColor}; border: 1px solid #e2e8f0;">
+                                                                📄 Documento
+                                                            </button>
+                                                            <button type="button" onclick="toggleAttachmentType(${index}, 'audio')" class="attachment-type-btn p-2 rounded text-center small-text" data-type="audio" data-index="${index}" style="background: ${attachment.type === 'audio' ? actionPrimary : 'white'}; color: ${attachment.type === 'audio' ? 'white' : textColor}; border: 1px solid #e2e8f0;">
+                                                                🎵 Áudio
+                                                            </button>
+                                                            <button type="button" onclick="toggleAttachmentType(${index}, 'location')" class="attachment-type-btn p-2 rounded text-center small-text" data-type="location" data-index="${index}" style="background: ${attachment.type === 'location' ? actionPrimary : 'white'}; color: ${attachment.type === 'location' ? 'white' : textColor}; border: 1px solid #e2e8f0;">
+                                                                📍 Localização
+                                                            </button>
+                                                            <button type="button" onclick="toggleAttachmentType(${index}, 'contact')" class="attachment-type-btn p-2 rounded text-center small-text" data-type="contact" data-index="${index}" style="background: ${attachment.type === 'contact' ? actionPrimary : 'white'}; color: ${attachment.type === 'contact' ? 'white' : textColor}; border: 1px solid #e2e8f0;">
+                                                                👤 Contato
+                                                            </button>
+                                                        </div>
+
+                                                        <div class="attachment-fields-${index}" style="display: ${attachment.type ? 'block' : 'none'};">
+                                                            ${attachment.type === 'image' || attachment.type === 'video' || attachment.type === 'document' || attachment.type === 'audio' ? `
+                                                                <div class="space-y-2">
+                                                                    <input 
+                                                                        type="text" 
+                                                                        class="attachment-url w-full p-2 rounded border border-gray-300 small-text" 
+                                                                        placeholder="URL do arquivo (https://...)"
+                                                                        value="${attachment.url || ''}"
+                                                                        style="color: ${textColor};">
+                                                                    <p class="small-text" style="color: #ef4444;">
+                                                                        ⚠️ Limites WhatsApp: 
+                                                                        ${attachment.type === 'image' ? 'Imagem até 5MB (JPG, PNG)' : 
+                                                                          attachment.type === 'video' ? 'Vídeo até 16MB (MP4, 3GP)' : 
+                                                                          attachment.type === 'audio' ? 'Áudio até 16MB (MP3, OGG)' : 
+                                                                          'Documento até 100MB (PDF, DOC, etc)'}
+                                                                    </p>
+                                                                    ${attachment.type === 'image' || attachment.type === 'video' || attachment.type === 'document' ? `
+                                                                        <input 
+                                                                            type="text" 
+                                                                            class="attachment-caption w-full p-2 rounded border border-gray-300 small-text" 
+                                                                            placeholder="Legenda (opcional)"
+                                                                            value="${attachment.caption || ''}"
+                                                                            style="color: ${textColor};">
+                                                                    ` : ''}
+                                                                </div>
+                                                            ` : attachment.type === 'location' ? `
+                                                                <div class="space-y-2">
+                                                                    <input 
+                                                                        type="text" 
+                                                                        class="attachment-latitude w-full p-2 rounded border border-gray-300 small-text" 
+                                                                        placeholder="Latitude (ex: -23.5505)"
+                                                                        value="${attachment.latitude || ''}"
+                                                                        style="color: ${textColor};">
+                                                                    <input 
+                                                                        type="text" 
+                                                                        class="attachment-longitude w-full p-2 rounded border border-gray-300 small-text" 
+                                                                        placeholder="Longitude (ex: -46.6333)"
+                                                                        value="${attachment.longitude || ''}"
+                                                                        style="color: ${textColor};">
+                                                                    <input 
+                                                                        type="text" 
+                                                                        class="attachment-location-name w-full p-2 rounded border border-gray-300 small-text" 
+                                                                        placeholder="Nome do local (opcional)"
+                                                                        value="${attachment.locationName || ''}"
+                                                                        style="color: ${textColor};">
+                                                                    <input 
+                                                                        type="text" 
+                                                                        class="attachment-location-address w-full p-2 rounded border border-gray-300 small-text" 
+                                                                        placeholder="Endereço (opcional)"
+                                                                        value="${attachment.address || ''}"
+                                                                        style="color: ${textColor};">
+                                                                </div>
+                                                            ` : attachment.type === 'contact' ? `
+                                                                <div class="space-y-2">
+                                                                    <input 
+                                                                        type="text" 
+                                                                        class="attachment-contact-name w-full p-2 rounded border border-gray-300 small-text" 
+                                                                        placeholder="Nome completo"
+                                                                        value="${attachment.contactName || ''}"
+                                                                        style="color: ${textColor};">
+                                                                    <input 
+                                                                        type="text" 
+                                                                        class="attachment-contact-phone w-full p-2 rounded border border-gray-300 small-text" 
+                                                                        placeholder="Telefone (ex: +5511999999999)"
+                                                                        value="${attachment.contactPhone || ''}"
+                                                                        style="color: ${textColor};">
+                                                                    <input 
+                                                                        type="text" 
+                                                                        class="attachment-contact-email w-full p-2 rounded border border-gray-300 small-text" 
+                                                                        placeholder="Email (opcional)"
+                                                                        value="${attachment.contactEmail || ''}"
+                                                                        style="color: ${textColor};">
+                                                                </div>
+                                                            ` : ''}
+                                                        </div>
+                                                    </div>
                                                 </div>
-                                            `).join('');
+                                            `}).join('');
                                         })()}
                                     </div>
                                     <p class="small-text mt-2" style="color: #64748b;">
@@ -1985,6 +2123,130 @@
             }
         }
 
+        function toggleAttachmentType(index, type) {
+            const config = window.elementSdk?.config || defaultConfig;
+            const actionPrimary = config.action_primary || defaultConfig.action_primary;
+            const textColor = config.text_color || defaultConfig.text_color;
+            const surfaceColor = config.secondary_surface || defaultConfig.secondary_surface;
+
+            // Atualizar botões visuais
+            const buttons = document.querySelectorAll(`[data-index="${index}"].attachment-type-btn`);
+            buttons.forEach(btn => {
+                const btnType = btn.getAttribute('data-type');
+                if (btnType === type) {
+                    // Se já está selecionado, desselecionar
+                    if (btn.style.background === actionPrimary || btn.style.background.includes('rgb')) {
+                        btn.style.background = 'white';
+                        btn.style.color = textColor;
+                        document.querySelector(`.attachment-fields-${index}`).style.display = 'none';
+                    } else {
+                        // Selecionar este tipo
+                        btn.style.background = actionPrimary;
+                        btn.style.color = 'white';
+                        renderAttachmentFields(index, type);
+                    }
+                } else {
+                    // Desselecionar outros
+                    btn.style.background = 'white';
+                    btn.style.color = textColor;
+                }
+            });
+        }
+
+        function renderAttachmentFields(index, type) {
+            const config = window.elementSdk?.config || defaultConfig;
+            const textColor = config.text_color || defaultConfig.text_color;
+            const fieldsContainer = document.querySelector(`.attachment-fields-${index}`);
+            
+            if (!fieldsContainer) return;
+
+            fieldsContainer.style.display = 'block';
+
+            let html = '';
+
+            if (type === 'image' || type === 'video' || type === 'document' || type === 'audio') {
+                const limits = {
+                    'image': 'Imagem até 5MB (JPG, PNG)',
+                    'video': 'Vídeo até 16MB (MP4, 3GP)',
+                    'audio': 'Áudio até 16MB (MP3, OGG)',
+                    'document': 'Documento até 100MB (PDF, DOC, etc)'
+                };
+
+                html = `
+                    <div class="space-y-2">
+                        <input 
+                            type="text" 
+                            class="attachment-url w-full p-2 rounded border border-gray-300 small-text" 
+                            placeholder="URL do arquivo (https://...)"
+                            style="color: ${textColor};">
+                        <p class="small-text" style="color: #ef4444;">
+                            ⚠️ Limites WhatsApp: ${limits[type]}
+                        </p>
+                        ${type !== 'audio' ? `
+                            <input 
+                                type="text" 
+                                class="attachment-caption w-full p-2 rounded border border-gray-300 small-text" 
+                                placeholder="Legenda (opcional)"
+                                style="color: ${textColor};">
+                        ` : ''}
+                    </div>
+                `;
+            } else if (type === 'location') {
+                html = `
+                    <div class="space-y-2">
+                        <input 
+                            type="text" 
+                            class="attachment-latitude w-full p-2 rounded border border-gray-300 small-text" 
+                            placeholder="Latitude (ex: -23.5505)"
+                            style="color: ${textColor};">
+                        <input 
+                            type="text" 
+                            class="attachment-longitude w-full p-2 rounded border border-gray-300 small-text" 
+                            placeholder="Longitude (ex: -46.6333)"
+                            style="color: ${textColor};">
+                        <input 
+                            type="text" 
+                            class="attachment-location-name w-full p-2 rounded border border-gray-300 small-text" 
+                            placeholder="Nome do local (opcional)"
+                            style="color: ${textColor};">
+                        <input 
+                            type="text" 
+                            class="attachment-location-address w-full p-2 rounded border border-gray-300 small-text" 
+                            placeholder="Endereço (opcional)"
+                            style="color: ${textColor};">
+                        <p class="small-text" style="color: #64748b;">
+                            💡 Dica: Use Google Maps para obter coordenadas precisas
+                        </p>
+                    </div>
+                `;
+            } else if (type === 'contact') {
+                html = `
+                    <div class="space-y-2">
+                        <input 
+                            type="text" 
+                            class="attachment-contact-name w-full p-2 rounded border border-gray-300 small-text" 
+                            placeholder="Nome completo"
+                            style="color: ${textColor};">
+                        <input 
+                            type="text" 
+                            class="attachment-contact-phone w-full p-2 rounded border border-gray-300 small-text" 
+                            placeholder="Telefone (ex: +5511999999999)"
+                            style="color: ${textColor};">
+                        <input 
+                            type="text" 
+                            class="attachment-contact-email w-full p-2 rounded border border-gray-300 small-text" 
+                            placeholder="Email (opcional)"
+                            style="color: ${textColor};">
+                        <p class="small-text" style="color: #64748b;">
+                            💡 O contato será compartilhado como vCard (.vcf)
+                        </p>
+                    </div>
+                `;
+            }
+
+            fieldsContainer.innerHTML = html;
+        }
+
         function addWhatsAppMessage() {
             const container = document.getElementById('whatsapp-messages-container');
             if (!container) return;
@@ -1998,6 +2260,7 @@
             const config = window.elementSdk?.config || defaultConfig;
             const textColor = config.text_color || defaultConfig.text_color;
             const surfaceColor = config.secondary_surface || defaultConfig.secondary_surface;
+            const actionPrimary = config.action_primary || defaultConfig.action_primary;
             const index = messageItems.length;
 
             const newMessageHTML = `
@@ -2011,6 +2274,33 @@
                         rows="4" 
                         placeholder="Ex: Olá {nome}! Bem-vindo à {empresa}..."
                         style="color: ${textColor};"></textarea>
+                    
+                    <div class="mt-3 pt-3 border-t border-gray-300">
+                        <label class="block small-text font-semibold mb-2" style="color: ${textColor};">📎 Anexos (Opcional)</label>
+                        
+                        <div class="grid grid-cols-2 gap-2 mb-3">
+                            <button type="button" onclick="toggleAttachmentType(${index}, 'image')" class="attachment-type-btn p-2 rounded text-center small-text" data-type="image" data-index="${index}" style="background: white; color: ${textColor}; border: 1px solid #e2e8f0;">
+                                🖼️ Imagem
+                            </button>
+                            <button type="button" onclick="toggleAttachmentType(${index}, 'video')" class="attachment-type-btn p-2 rounded text-center small-text" data-type="video" data-index="${index}" style="background: white; color: ${textColor}; border: 1px solid #e2e8f0;">
+                                🎥 Vídeo
+                            </button>
+                            <button type="button" onclick="toggleAttachmentType(${index}, 'document')" class="attachment-type-btn p-2 rounded text-center small-text" data-type="document" data-index="${index}" style="background: white; color: ${textColor}; border: 1px solid #e2e8f0;">
+                                📄 Documento
+                            </button>
+                            <button type="button" onclick="toggleAttachmentType(${index}, 'audio')" class="attachment-type-btn p-2 rounded text-center small-text" data-type="audio" data-index="${index}" style="background: white; color: ${textColor}; border: 1px solid #e2e8f0;">
+                                🎵 Áudio
+                            </button>
+                            <button type="button" onclick="toggleAttachmentType(${index}, 'location')" class="attachment-type-btn p-2 rounded text-center small-text" data-type="location" data-index="${index}" style="background: white; color: ${textColor}; border: 1px solid #e2e8f0;">
+                                📍 Localização
+                            </button>
+                            <button type="button" onclick="toggleAttachmentType(${index}, 'contact')" class="attachment-type-btn p-2 rounded text-center small-text" data-type="contact" data-index="${index}" style="background: white; color: ${textColor}; border: 1px solid #e2e8f0;">
+                                👤 Contato
+                            </button>
+                        </div>
+
+                        <div class="attachment-fields-${index}" style="display: none;"></div>
+                    </div>
                 </div>
             `;
 
@@ -2087,6 +2377,63 @@
                 
                 formData.whatsapp_messages = messages;
                 
+                // Coletar anexos para cada mensagem
+                const attachments = [];
+                const messageItems = document.querySelectorAll('.message-item');
+                
+                messageItems.forEach((item, index) => {
+                    const fieldsContainer = item.querySelector(`.attachment-fields-${index}`);
+                    if (!fieldsContainer || fieldsContainer.style.display === 'none') {
+                        attachments.push({});
+                        return;
+                    }
+
+                    const attachment = {};
+                    
+                    // Detectar tipo baseado nos botões selecionados
+                    const selectedBtn = item.querySelector(`[data-index="${index}"].attachment-type-btn[style*="rgb"]`);
+                    if (selectedBtn) {
+                        attachment.type = selectedBtn.getAttribute('data-type');
+                        
+                        if (attachment.type === 'image' || attachment.type === 'video' || 
+                            attachment.type === 'document' || attachment.type === 'audio') {
+                            const urlInput = fieldsContainer.querySelector('.attachment-url');
+                            const captionInput = fieldsContainer.querySelector('.attachment-caption');
+                            
+                            if (urlInput && urlInput.value) {
+                                attachment.url = urlInput.value.trim();
+                                if (captionInput) attachment.caption = captionInput.value.trim();
+                            }
+                        } else if (attachment.type === 'location') {
+                            const latInput = fieldsContainer.querySelector('.attachment-latitude');
+                            const lngInput = fieldsContainer.querySelector('.attachment-longitude');
+                            const nameInput = fieldsContainer.querySelector('.attachment-location-name');
+                            const addressInput = fieldsContainer.querySelector('.attachment-location-address');
+                            
+                            if (latInput && lngInput && latInput.value && lngInput.value) {
+                                attachment.latitude = latInput.value.trim();
+                                attachment.longitude = lngInput.value.trim();
+                                if (nameInput) attachment.locationName = nameInput.value.trim();
+                                if (addressInput) attachment.address = addressInput.value.trim();
+                            }
+                        } else if (attachment.type === 'contact') {
+                            const nameInput = fieldsContainer.querySelector('.attachment-contact-name');
+                            const phoneInput = fieldsContainer.querySelector('.attachment-contact-phone');
+                            const emailInput = fieldsContainer.querySelector('.attachment-contact-email');
+                            
+                            if (nameInput && phoneInput && nameInput.value && phoneInput.value) {
+                                attachment.contactName = nameInput.value.trim();
+                                attachment.contactPhone = phoneInput.value.trim();
+                                if (emailInput) attachment.contactEmail = emailInput.value.trim();
+                            }
+                        }
+                    }
+                    
+                    attachments.push(attachment);
+                });
+                
+                formData.whatsapp_attachments = JSON.stringify(attachments);
+                
                 // Configurações de atraso
                 const enableDelays = document.getElementById('enable-delays')?.checked || false;
                 formData.enable_delays = enableDelays;
@@ -2162,10 +2509,3 @@
                 showToast('Erro ao excluir automação', 'error');
                 deleteButton.disabled = false;
                 deleteButton.textContent = 'Excluir';
-            }
-        }
-
-        initializeApp();
-    </script>
- <script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'9b7a39a9f354c6c1',t:'MTc2NzM1NjU4MS4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
-</html>
