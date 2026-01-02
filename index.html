@@ -178,6 +178,13 @@
         function loadLocalData() {
             try {
                 const data = localStorage.getItem('crm_data_v10');
+                
+                // Carregar estado de conexão WhatsApp
+                const connected = localStorage.getItem('whatsapp_connected');
+                if (connected === 'true') {
+                    whatsappConnected = true;
+                }
+                
                 return data ? JSON.parse(data) : [];
             } catch (e) {
                 console.error('Erro ao carregar dados:', e);
@@ -737,7 +744,7 @@
                     
                     <div class="flex items-center justify-between p-4 rounded-lg mb-4" style="background: white; border: 1px solid #e2e8f0;">
                         <button onclick="changeMonth(-1)" class="p-2 rounded" style="color: ${textColor}; font-size: ${fontSize}px;">
-                            ���� Anterior
+                            ������ Anterior
                         </button>
                         <h4 class="body-text font-bold" style="color: ${primaryColor}; font-size: ${fontSize}px;">${monthNames[currentMonth]} ${currentYear}</h4>
                         <button onclick="changeMonth(1)" class="p-2 rounded" style="color: ${textColor}; font-size: ${fontSize}px;">
@@ -938,13 +945,33 @@
                 </div>
 
                 <div class="mb-8 p-6 rounded-lg" style="background: white; border: 2px solid ${primaryColor};">
-                    <div class="flex items-center gap-3 mb-4">
-                        <span class="text-4xl">📱</span>
-                        <div>
-                            <h4 class="body-text font-semibold mb-1" style="color: ${textColor}; font-size: ${fontSize}px;">WhatsApp Business Pro</h4>
-                            <p class="small-text" style="color: #64748b; font-size: ${fontSize * 0.875}px;">Sistema completo com rotação de mensagens e proteção inteligente</p>
+                    <div class="flex items-center justify-between mb-4">
+                        <div class="flex items-center gap-3">
+                            <span class="text-4xl">📱</span>
+                            <div>
+                                <h4 class="body-text font-semibold mb-1" style="color: ${textColor}; font-size: ${fontSize}px;">WhatsApp Business Pro com Baileys</h4>
+                                <p class="small-text" style="color: #64748b; font-size: ${fontSize * 0.875}px;">Sistema completo com conexão via QR Code</p>
+                            </div>
+                        </div>
+                        <div id="connection-status">
+                            ${whatsappConnected ? `
+                                <div class="flex items-center gap-3">
+                                    <div class="flex items-center gap-2 px-4 py-2 rounded-lg" style="background: #dcfce7; border: 1px solid #86efac;">
+                                        <span class="text-xl">✓</span>
+                                        <span class="small-text font-semibold" style="color: #166534; font-size: ${fontSize * 0.875}px;">Conectado</span>
+                                    </div>
+                                    <button onclick="disconnectWhatsApp()" class="px-3 py-2 rounded-lg small-text" style="background: #fee2e2; color: #991b1b; font-size: ${fontSize * 0.875}px;">
+                                        🔌 Desconectar
+                                    </button>
+                                </div>
+                            ` : `
+                                <button onclick="openWhatsAppConnection()" class="px-4 py-2 rounded-lg body-text font-medium" style="background: ${primaryColor}; color: white; font-size: ${fontSize}px;">
+                                    🔗 Conectar WhatsApp
+                                </button>
+                            `}
                         </div>
                     </div>
+                    
                     <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4">
                         <div class="p-3 rounded" style="background: #f0fdf4; border: 1px solid #86efac;">
                             <p class="small-text font-semibold mb-1" style="color: #166534; font-size: ${fontSize * 0.875}px;">✅ Rotação de Mensagens</p>
@@ -1619,6 +1646,195 @@
             updateCurrentView();
         }
 
+        function openWhatsAppConnection() {
+            const config = window.elementSdk?.config || defaultConfig;
+            const primaryColor = config.primary_color || defaultConfig.primary_color;
+            const textColor = config.text_color || defaultConfig.text_color;
+            const fontSize = config.font_size || defaultConfig.font_size;
+
+            const modalHTML = `
+                <div id="whatsapp-modal" class="modal-backdrop fixed inset-0 flex items-center justify-center p-4" style="z-index: 1000;" onclick="if(event.target.id==='whatsapp-modal') closeWhatsAppModal()">
+                    <div class="rounded-lg p-6 w-full max-w-lg slide-in" style="background: white;" onclick="event.stopPropagation()">
+                        <div class="flex items-center justify-between mb-6">
+                            <h3 class="subtitle-text font-semibold" style="color: ${textColor}; font-size: ${fontSize * 1.25}px;">🔗 Conectar WhatsApp com Baileys</h3>
+                            <button onclick="closeWhatsAppModal()" class="text-2xl" style="color: #64748b;">&times;</button>
+                        </div>
+
+                        <div class="text-center mb-6">
+                            <div id="qr-code-container" class="p-8 rounded-lg mb-4" style="background: #f8fafc; border: 2px dashed ${primaryColor};">
+                                <div class="pulse-animation mb-4">
+                                    <svg width="200" height="200" style="margin: 0 auto;">
+                                        <rect width="200" height="200" fill="white" stroke="${primaryColor}" stroke-width="2" rx="8"/>
+                                        <text x="100" y="100" text-anchor="middle" dominant-baseline="middle" style="font-size: 60px;">📱</text>
+                                    </svg>
+                                </div>
+                                <p id="qr-status" class="body-text" style="color: ${textColor}; font-size: ${fontSize}px;">Gerando QR Code...</p>
+                            </div>
+
+                            <div class="p-4 rounded-lg" style="background: #eff6ff; border: 1px solid #93c5fd;">
+                                <h4 class="body-text font-semibold mb-2" style="color: #1e40af; font-size: ${fontSize}px;">📋 Como Conectar:</h4>
+                                <ol class="text-left space-y-2 small-text" style="color: #1e3a8a; font-size: ${fontSize * 0.875}px;">
+                                    <li>1️⃣ Abra o WhatsApp no seu celular</li>
+                                    <li>2️⃣ Toque em <strong>Mais opções</strong> (⋮) ou <strong>Configurações</strong></li>
+                                    <li>3️⃣ Selecione <strong>Aparelhos conectados</strong></li>
+                                    <li>4️⃣ Toque em <strong>Conectar um aparelho</strong></li>
+                                    <li>5️⃣ Aponte a câmera para o QR Code acima</li>
+                                </ol>
+                            </div>
+                        </div>
+
+                        <div class="p-4 rounded-lg mb-4" style="background: #fef3c7; border: 1px solid #fcd34d;">
+                            <p class="small-text" style="color: #92400e; font-size: ${fontSize * 0.875}px;">
+                                ⚠️ <strong>Importante:</strong> Este é um sistema de demonstração. Para implementar o servidor Baileys real, você precisará de:
+                            </p>
+                            <ul class="mt-2 space-y-1 small-text" style="color: #78350f; font-size: ${fontSize * 0.75}px;">
+                                <li>• Servidor Node.js com a biblioteca @whiskeysockets/baileys</li>
+                                <li>• WebSocket para comunicação em tempo real</li>
+                                <li>• Armazenamento para sessões (auth_info_baileys)</li>
+                            </ul>
+                        </div>
+
+                        <div class="flex gap-3">
+                            <button onclick="simulateConnection()" class="flex-1 px-4 py-3 rounded-lg body-text font-medium" style="background: ${primaryColor}; color: white; font-size: ${fontSize}px;">
+                                ✓ Simular Conexão (Demo)
+                            </button>
+                            <button onclick="closeWhatsAppModal()" class="px-4 py-3 rounded-lg body-text" style="background: #f1f5f9; color: ${textColor}; font-size: ${fontSize}px;">
+                                Cancelar
+                            </button>
+                        </div>
+
+                        <div class="mt-4 p-3 rounded-lg" style="background: #f0f9ff; border: 1px solid #bae6fd;">
+                            <p class="small-text font-semibold mb-2" style="color: #0c4a6e; font-size: ${fontSize * 0.875}px;">💻 Código do Servidor Baileys (Node.js):</p>
+                            <pre class="small-text p-3 rounded overflow-x-auto" style="background: #1e293b; color: #e2e8f0; font-size: ${fontSize * 0.75}px; font-family: monospace;">
+const { default: makeWASocket, useMultiFileAuthState } = require('@whiskeysockets/baileys');
+
+async function connectWhatsApp() {
+  const { state, saveCreds } = await useMultiFileAuthState('auth_info_baileys');
+  
+  const sock = makeWASocket({
+    auth: state,
+    printQRInTerminal: true
+  });
+
+  sock.ev.on('creds.update', saveCreds);
+  
+  sock.ev.on('connection.update', (update) => {
+    const { connection, qr } = update;
+    if (qr) {
+      // Enviar QR via WebSocket para o frontend
+      console.log('QR Code:', qr);
+    }
+    if (connection === 'open') {
+      console.log('✓ Conectado!');
+    }
+  });
+}
+
+connectWhatsApp();</pre>
+                        </div>
+                    </div>
+                </div>
+            `;
+
+            document.body.insertAdjacentHTML('beforeend', modalHTML);
+
+            // Simular geração de QR Code após 2 segundos
+            setTimeout(() => {
+                const qrContainer = document.getElementById('qr-code-container');
+                const qrStatus = document.getElementById('qr-status');
+                
+                if (qrContainer && qrStatus) {
+                    // Gerar QR Code simulado (em produção, viria do servidor Baileys)
+                    const qrCodeData = generateSimulatedQRCode();
+                    
+                    qrContainer.innerHTML = `
+                        <div style="background: white; padding: 16px; border-radius: 8px; display: inline-block;">
+                            ${qrCodeData}
+                        </div>
+                    `;
+                    qrStatus.textContent = '📱 Escaneie o QR Code no seu WhatsApp';
+                }
+            }, 2000);
+        }
+
+        function generateSimulatedQRCode() {
+            // Gera um QR Code SVG simulado (em produção, usaria biblioteca qrcode)
+            const qrSize = 200;
+            const cellSize = 10;
+            const cells = 20;
+            
+            let qrCode = `<svg width="${qrSize}" height="${qrSize}" style="background: white;">`;
+            
+            // Gerar padrão aleatório que parece um QR Code
+            for (let y = 0; y < cells; y++) {
+                for (let x = 0; x < cells; x++) {
+                    if (Math.random() > 0.5) {
+                        qrCode += `<rect x="${x * cellSize}" y="${y * cellSize}" width="${cellSize}" height="${cellSize}" fill="black"/>`;
+                    }
+                }
+            }
+            
+            // Adicionar os 3 quadrados de canto característicos do QR Code
+            const cornerSize = cellSize * 7;
+            const corners = [
+                { x: 0, y: 0 },
+                { x: qrSize - cornerSize, y: 0 },
+                { x: 0, y: qrSize - cornerSize }
+            ];
+            
+            corners.forEach(corner => {
+                qrCode += `
+                    <rect x="${corner.x}" y="${corner.y}" width="${cornerSize}" height="${cornerSize}" fill="black"/>
+                    <rect x="${corner.x + cellSize}" y="${corner.y + cellSize}" width="${cornerSize - cellSize * 2}" height="${cornerSize - cellSize * 2}" fill="white"/>
+                    <rect x="${corner.x + cellSize * 2}" y="${corner.y + cellSize * 2}" width="${cornerSize - cellSize * 4}" height="${cornerSize - cellSize * 4}" fill="black"/>
+                `;
+            });
+            
+            qrCode += '</svg>';
+            return qrCode;
+        }
+
+        function simulateConnection() {
+            const qrStatus = document.getElementById('qr-status');
+            const config = window.elementSdk?.config || defaultConfig;
+            const fontSize = config.font_size || defaultConfig.font_size;
+            
+            if (qrStatus) {
+                qrStatus.innerHTML = '⏳ Conectando...';
+            }
+            
+            setTimeout(() => {
+                whatsappConnected = true;
+                showToast('✓ WhatsApp conectado com sucesso!', 'success');
+                closeWhatsAppModal();
+                
+                // Salvar estado
+                try {
+                    localStorage.setItem('whatsapp_connected', 'true');
+                } catch (e) {
+                    console.error('Erro ao salvar estado:', e);
+                }
+                
+                updateCurrentView();
+            }, 2000);
+        }
+
+        function closeWhatsAppModal() {
+            const modal = document.getElementById('whatsapp-modal');
+            if (modal) modal.remove();
+        }
+
+        function disconnectWhatsApp() {
+            whatsappConnected = false;
+            try {
+                localStorage.removeItem('whatsapp_connected');
+            } catch (e) {
+                console.error('Erro ao remover estado:', e);
+            }
+            showToast('WhatsApp desconectado', 'success');
+            updateCurrentView();
+        }
+
         function showToast(message, type = 'success') {
             const bgColor = type === 'success' ? '#10b981' : '#ef4444';
             const config = window.elementSdk?.config || defaultConfig;
@@ -1686,5 +1902,5 @@
         // Fallback final após 2 segundos
         setTimeout(tryInit, 2000);
     </script>
- <script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'9b7dbac3f361a5e7',t:'MTc2NzM5MzMyNi4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
+ <script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'9b7dc6ab70015e0f',t:'MTc2NzM5MzgxNC4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
 </html>
