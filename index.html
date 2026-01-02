@@ -578,7 +578,7 @@
                 <div class="mb-6 flex items-center justify-between">
                     <div>
                         <h3 class="subtitle-text font-semibold mb-2" style="color: ${textColor}; font-size: ${fontSize * 1.25}px;">
-                            🎯 ${config.leads_title || defaultConfig.leads_title}
+                            ��� ${config.leads_title || defaultConfig.leads_title}
                         </h3>
                         <p class="body-text" style="color: #64748b; font-size: ${fontSize}px;">Arraste os cards para mudar de estágio</p>
                     </div>
@@ -737,7 +737,7 @@
                     
                     <div class="flex items-center justify-between p-4 rounded-lg mb-4" style="background: white; border: 1px solid #e2e8f0;">
                         <button onclick="changeMonth(-1)" class="p-2 rounded" style="color: ${textColor}; font-size: ${fontSize}px;">
-                            ← Anterior
+                            ���� Anterior
                         </button>
                         <h4 class="body-text font-bold" style="color: ${primaryColor}; font-size: ${fontSize}px;">${monthNames[currentMonth]} ${currentYear}</h4>
                         <button onclick="changeMonth(1)" class="p-2 rounded" style="color: ${textColor}; font-size: ${fontSize}px;">
@@ -1486,29 +1486,75 @@
 
         function renderAttachmentFields(idx, attachment, textColor, fontSize) {
             const type = attachment.type;
+            const config = window.elementSdk?.config || defaultConfig;
+            const primaryColor = config.primary_color || defaultConfig.primary_color;
             
             if (type === 'image') {
                 return `
-                    <input type="url" id="attachment-url-${idx}" value="${attachment.url || ''}" placeholder="URL da imagem (https://...)" class="w-full p-2 rounded border border-gray-300" style="color: ${textColor}; font-size: ${fontSize * 0.875}px;">
-                    <input type="text" id="attachment-caption-${idx}" value="${attachment.caption || ''}" placeholder="Legenda (opcional)" class="w-full p-2 rounded border border-gray-300" style="color: ${textColor}; font-size: ${fontSize * 0.875}px;">
-                    <p class="small-text" style="color: #64748b; font-size: ${fontSize * 0.75}px;">Limite: 5MB (JPG, PNG)</p>
+                    <div class="space-y-2">
+                        <div class="flex gap-2">
+                            <button type="button" onclick="document.getElementById('file-input-${idx}').click()" class="flex-1 p-2 rounded border-2 border-dashed text-center" style="border-color: ${primaryColor}; color: ${primaryColor}; font-size: ${fontSize * 0.875}px;">
+                                📁 Selecionar Arquivo
+                            </button>
+                        </div>
+                        <input type="file" id="file-input-${idx}" accept="image/jpeg,image/png" onchange="handleFileSelect(${idx}, event)" style="display: none;">
+                        <input type="url" id="attachment-url-${idx}" value="${attachment.url || ''}" placeholder="Ou cole URL da imagem (https://...)" class="w-full p-2 rounded border border-gray-300" style="color: ${textColor}; font-size: ${fontSize * 0.875}px;">
+                        <div id="file-preview-${idx}" class="text-center p-2 rounded" style="background: #f0fdf4; display: ${attachment.fileName ? 'block' : 'none'};">
+                            <p class="small-text" style="color: #166534; font-size: ${fontSize * 0.75}px;">✓ ${attachment.fileName || 'Arquivo selecionado'}</p>
+                        </div>
+                        <input type="text" id="attachment-caption-${idx}" value="${attachment.caption || ''}" placeholder="Legenda (opcional)" class="w-full p-2 rounded border border-gray-300" style="color: ${textColor}; font-size: ${fontSize * 0.875}px;">
+                        <p class="small-text" style="color: #64748b; font-size: ${fontSize * 0.75}px;">💾 Limite: 5MB (JPG, PNG)</p>
+                    </div>
                 `;
             } else if (type === 'video') {
                 return `
-                    <input type="url" id="attachment-url-${idx}" value="${attachment.url || ''}" placeholder="URL do vídeo (https://...)" class="w-full p-2 rounded border border-gray-300" style="color: ${textColor}; font-size: ${fontSize * 0.875}px;">
-                    <input type="text" id="attachment-caption-${idx}" value="${attachment.caption || ''}" placeholder="Legenda (opcional)" class="w-full p-2 rounded border border-gray-300" style="color: ${textColor}; font-size: ${fontSize * 0.875}px;">
-                    <p class="small-text" style="color: #64748b; font-size: ${fontSize * 0.75}px;">Limite: 16MB (MP4, 3GP)</p>
+                    <div class="space-y-2">
+                        <div class="flex gap-2">
+                            <button type="button" onclick="document.getElementById('file-input-${idx}').click()" class="flex-1 p-2 rounded border-2 border-dashed text-center" style="border-color: ${primaryColor}; color: ${primaryColor}; font-size: ${fontSize * 0.875}px;">
+                                📁 Selecionar Arquivo
+                            </button>
+                        </div>
+                        <input type="file" id="file-input-${idx}" accept="video/mp4,video/3gpp" onchange="handleFileSelect(${idx}, event)" style="display: none;">
+                        <input type="url" id="attachment-url-${idx}" value="${attachment.url || ''}" placeholder="Ou cole URL do vídeo (https://...)" class="w-full p-2 rounded border border-gray-300" style="color: ${textColor}; font-size: ${fontSize * 0.875}px;">
+                        <div id="file-preview-${idx}" class="text-center p-2 rounded" style="background: #f0fdf4; display: ${attachment.fileName ? 'block' : 'none'};">
+                            <p class="small-text" style="color: #166534; font-size: ${fontSize * 0.75}px;">✓ ${attachment.fileName || 'Arquivo selecionado'}</p>
+                        </div>
+                        <input type="text" id="attachment-caption-${idx}" value="${attachment.caption || ''}" placeholder="Legenda (opcional)" class="w-full p-2 rounded border border-gray-300" style="color: ${textColor}; font-size: ${fontSize * 0.875}px;">
+                        <p class="small-text" style="color: #64748b; font-size: ${fontSize * 0.75}px;">💾 Limite: 16MB (MP4, 3GP)</p>
+                    </div>
                 `;
             } else if (type === 'document') {
                 return `
-                    <input type="url" id="attachment-url-${idx}" value="${attachment.url || ''}" placeholder="URL do documento (https://...)" class="w-full p-2 rounded border border-gray-300" style="color: ${textColor}; font-size: ${fontSize * 0.875}px;">
-                    <input type="text" id="attachment-caption-${idx}" value="${attachment.caption || ''}" placeholder="Legenda (opcional)" class="w-full p-2 rounded border border-gray-300" style="color: ${textColor}; font-size: ${fontSize * 0.875}px;">
-                    <p class="small-text" style="color: #64748b; font-size: ${fontSize * 0.75}px;">Limite: 100MB (PDF, DOC, etc)</p>
+                    <div class="space-y-2">
+                        <div class="flex gap-2">
+                            <button type="button" onclick="document.getElementById('file-input-${idx}').click()" class="flex-1 p-2 rounded border-2 border-dashed text-center" style="border-color: ${primaryColor}; color: ${primaryColor}; font-size: ${fontSize * 0.875}px;">
+                                📁 Selecionar Arquivo
+                            </button>
+                        </div>
+                        <input type="file" id="file-input-${idx}" accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx" onchange="handleFileSelect(${idx}, event)" style="display: none;">
+                        <input type="url" id="attachment-url-${idx}" value="${attachment.url || ''}" placeholder="Ou cole URL do documento (https://...)" class="w-full p-2 rounded border border-gray-300" style="color: ${textColor}; font-size: ${fontSize * 0.875}px;">
+                        <div id="file-preview-${idx}" class="text-center p-2 rounded" style="background: #f0fdf4; display: ${attachment.fileName ? 'block' : 'none'};">
+                            <p class="small-text" style="color: #166534; font-size: ${fontSize * 0.75}px;">✓ ${attachment.fileName || 'Arquivo selecionado'}</p>
+                        </div>
+                        <input type="text" id="attachment-caption-${idx}" value="${attachment.caption || ''}" placeholder="Legenda (opcional)" class="w-full p-2 rounded border border-gray-300" style="color: ${textColor}; font-size: ${fontSize * 0.875}px;">
+                        <p class="small-text" style="color: #64748b; font-size: ${fontSize * 0.75}px;">💾 Limite: 100MB (PDF, DOC, XLS, PPT)</p>
+                    </div>
                 `;
             } else if (type === 'audio') {
                 return `
-                    <input type="url" id="attachment-url-${idx}" value="${attachment.url || ''}" placeholder="URL do áudio (https://...)" class="w-full p-2 rounded border border-gray-300" style="color: ${textColor}; font-size: ${fontSize * 0.875}px;">
-                    <p class="small-text" style="color: #64748b; font-size: ${fontSize * 0.75}px;">Limite: 16MB (MP3, OGG)</p>
+                    <div class="space-y-2">
+                        <div class="flex gap-2">
+                            <button type="button" onclick="document.getElementById('file-input-${idx}').click()" class="flex-1 p-2 rounded border-2 border-dashed text-center" style="border-color: ${primaryColor}; color: ${primaryColor}; font-size: ${fontSize * 0.875}px;">
+                                📁 Selecionar Arquivo
+                            </button>
+                        </div>
+                        <input type="file" id="file-input-${idx}" accept="audio/mpeg,audio/ogg" onchange="handleFileSelect(${idx}, event)" style="display: none;">
+                        <input type="url" id="attachment-url-${idx}" value="${attachment.url || ''}" placeholder="Ou cole URL do áudio (https://...)" class="w-full p-2 rounded border border-gray-300" style="color: ${textColor}; font-size: ${fontSize * 0.875}px;">
+                        <div id="file-preview-${idx}" class="text-center p-2 rounded" style="background: #f0fdf4; display: ${attachment.fileName ? 'block' : 'none'};">
+                            <p class="small-text" style="color: #166534; font-size: ${fontSize * 0.75}px;">✓ ${attachment.fileName || 'Arquivo selecionado'}</p>
+                        </div>
+                        <p class="small-text" style="color: #64748b; font-size: ${fontSize * 0.75}px;">💾 Limite: 16MB (MP3, OGG)</p>
+                    </div>
                 `;
             } else if (type === 'location') {
                 return `
@@ -1526,6 +1572,43 @@
             }
             
             return '';
+        }
+
+        function handleFileSelect(idx, event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            
+            const preview = document.getElementById(`file-preview-${idx}`);
+            const urlInput = document.getElementById(`attachment-url-${idx}`);
+            
+            // Converter arquivo para Base64
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const base64Data = e.target.result;
+                
+                // Armazenar no campo URL (Base64)
+                if (urlInput) {
+                    urlInput.value = base64Data;
+                }
+                
+                // Mostrar preview
+                if (preview) {
+                    preview.style.display = 'block';
+                    preview.innerHTML = `
+                        <p class="small-text" style="color: #166534; font-size: 12px;">
+                            ✓ ${file.name} (${(file.size / 1024).toFixed(1)} KB)
+                        </p>
+                    `;
+                }
+                
+                showToast(`Arquivo "${file.name}" carregado!`, 'success');
+            };
+            
+            reader.onerror = function() {
+                showToast('Erro ao carregar arquivo', 'error');
+            };
+            
+            reader.readAsDataURL(file);
         }
 
         function deleteRecord(id) {
@@ -1603,5 +1686,5 @@
         // Fallback final após 2 segundos
         setTimeout(tryInit, 2000);
     </script>
- <script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'9b7da64991f4f202',t:'MTc2NzM5MjQ4OC4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
+ <script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'9b7dbac3f361a5e7',t:'MTc2NzM5MzMyNi4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
 </html>
