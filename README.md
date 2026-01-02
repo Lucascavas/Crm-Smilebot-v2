@@ -1,1 +1,3 @@
-# Crm-Smilebot-v2
+# 📱 Servidor WhatsApp Baileys
+
+Servidor Node.js para integração WhatsApp usando Baileys.
