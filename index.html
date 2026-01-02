@@ -928,51 +928,108 @@
                 <div class="mb-6 flex items-center justify-between">
                     <div>
                         <h3 class="subtitle-text font-semibold mb-2" style="color: ${textColor}; font-size: ${fontSize * 1.25}px;">
-                            ⚡ Automação WhatsApp
+                            ⚡ Automação WhatsApp Avançada
                         </h3>
-                        <p class="body-text" style="color: #64748b; font-size: ${fontSize}px;">Configure mensagens automáticas via WhatsApp</p>
+                        <p class="body-text" style="color: #64748b; font-size: ${fontSize}px;">Sistema profissional com rotação de mensagens e proteção anti-bloqueio</p>
                     </div>
                     <button onclick="openModal('automation')" class="px-4 py-2 rounded-lg body-text font-medium" style="background: ${primaryColor}; color: white; font-size: ${fontSize}px;">
                         + Nova Automação
                     </button>
                 </div>
 
-                <div class="mb-8 p-6 rounded-lg" style="background: white; border: 2px solid #e2e8f0;">
-                    <div class="flex items-center gap-3 mb-3">
+                <div class="mb-8 p-6 rounded-lg" style="background: white; border: 2px solid ${primaryColor};">
+                    <div class="flex items-center gap-3 mb-4">
                         <span class="text-4xl">📱</span>
                         <div>
-                            <h4 class="body-text font-semibold mb-1" style="color: ${textColor}; font-size: ${fontSize}px;">WhatsApp Business (Demo)</h4>
-                            <p class="small-text" style="color: #64748b; font-size: ${fontSize * 0.875}px;">Interface de demonstração - Backend necessário para produção</p>
+                            <h4 class="body-text font-semibold mb-1" style="color: ${textColor}; font-size: ${fontSize}px;">WhatsApp Business Pro</h4>
+                            <p class="small-text" style="color: #64748b; font-size: ${fontSize * 0.875}px;">Sistema completo com rotação de mensagens e proteção inteligente</p>
+                        </div>
+                    </div>
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4">
+                        <div class="p-3 rounded" style="background: #f0fdf4; border: 1px solid #86efac;">
+                            <p class="small-text font-semibold mb-1" style="color: #166534; font-size: ${fontSize * 0.875}px;">✅ Rotação de Mensagens</p>
+                            <p class="small-text" style="color: #15803d; font-size: ${fontSize * 0.75}px;">Até 5 mensagens diferentes</p>
+                        </div>
+                        <div class="p-3 rounded" style="background: #eff6ff; border: 1px solid #93c5fd;">
+                            <p class="small-text font-semibold mb-1" style="color: #1e40af; font-size: ${fontSize * 0.875}px;">🔐 Anti-Bloqueio</p>
+                            <p class="small-text" style="color: #1e3a8a; font-size: ${fontSize * 0.75}px;">Intervalos humanizados</p>
+                        </div>
+                        <div class="p-3 rounded" style="background: #fef3c7; border: 1px solid #fcd34d;">
+                            <p class="small-text font-semibold mb-1" style="color: #92400e; font-size: ${fontSize * 0.875}px;">📎 Anexos</p>
+                            <p class="small-text" style="color: #78350f; font-size: ${fontSize * 0.75}px;">Imagens, vídeos, docs</p>
                         </div>
                     </div>
                 </div>
 
                 <div class="space-y-4">
-                    ${automations.map(auto => `
+                    ${automations.map(auto => {
+                        const messages = auto.messages || [];
+                        const delayConfig = auto.delayConfig || {};
+                        const hasDelay = delayConfig.enabled;
+                        
+                        return `
                         <div class="p-6 rounded-lg card-hover" style="background: white; border: 1px solid #e2e8f0;">
-                            <div class="flex items-start justify-between">
+                            <div class="flex items-start justify-between mb-4">
                                 <div class="flex-1">
-                                    <h5 class="body-text font-semibold mb-2" style="color: ${textColor}; font-size: ${fontSize}px;">${auto.name}</h5>
-                                    <p class="small-text mb-3" style="color: #64748b; font-size: ${fontSize * 0.875}px;">${auto.notes || 'Sem descrição'}</p>
-                                    <div class="flex gap-4">
-                                        <span class="small-text" style="color: ${textColor}; font-size: ${fontSize * 0.875}px;"><strong>Gatilho:</strong> ${auto.trigger}</span>
-                                        <span class="small-text" style="color: ${textColor}; font-size: ${fontSize * 0.875}px;"><strong>Ação:</strong> ${auto.action}</span>
+                                    <div class="flex items-center gap-2 mb-2">
+                                        <h5 class="body-text font-semibold" style="color: ${textColor}; font-size: ${fontSize}px;">${auto.name}</h5>
+                                        ${hasDelay ? `<span class="small-text px-2 py-1 rounded" style="background: #dcfce7; color: #166534; font-size: ${fontSize * 0.75}px;">🔐 Protegido</span>` : ''}
                                     </div>
+                                    <p class="small-text mb-3" style="color: #64748b; font-size: ${fontSize * 0.875}px;">${auto.notes || 'Sem descrição'}</p>
+                                    <div class="flex flex-wrap gap-3 mb-3">
+                                        <span class="small-text" style="color: ${textColor}; font-size: ${fontSize * 0.875}px;"><strong>Gatilho:</strong> ${auto.trigger}</span>
+                                        <span class="small-text" style="color: ${textColor}; font-size: ${fontSize * 0.875}px;"><strong>Mensagens:</strong> ${messages.length}/5</span>
+                                        ${hasDelay ? `<span class="small-text" style="color: #166534; font-size: ${fontSize * 0.875}px;"><strong>⏱️</strong> ${delayConfig.minInterval || 20}-${delayConfig.maxInterval || 45}s</span>` : ''}
+                                    </div>
+                                    ${messages.length > 0 ? `
+                                        <div class="mt-3 p-3 rounded" style="background: #f8fafc; border: 1px solid #e2e8f0;">
+                                            <p class="small-text font-semibold mb-2" style="color: ${textColor}; font-size: ${fontSize * 0.875}px;">📱 Mensagens Configuradas:</p>
+                                            <div class="space-y-2">
+                                                ${messages.map((msg, idx) => `
+                                                    <div class="flex items-start gap-2">
+                                                        <span class="small-text font-semibold" style="color: ${primaryColor}; font-size: ${fontSize * 0.75}px;">${idx + 1}.</span>
+                                                        <div class="flex-1">
+                                                            <p class="small-text" style="color: ${textColor}; font-size: ${fontSize * 0.75}px;">${msg.text.substring(0, 60)}${msg.text.length > 60 ? '...' : ''}</p>
+                                                            ${msg.attachment ? `<span class="small-text" style="color: #64748b; font-size: ${fontSize * 0.625}px;">${getAttachmentIcon(msg.attachment.type)} ${msg.attachment.type}</span>` : ''}
+                                                        </div>
+                                                    </div>
+                                                `).join('')}
+                                            </div>
+                                        </div>
+                                    ` : ''}
                                 </div>
-                                <button onclick="deleteRecord('${auto.id}')" class="px-3 py-1 rounded small-text" style="background: #fee2e2; color: #991b1b; font-size: ${fontSize * 0.875}px;">
-                                    Excluir
-                                </button>
+                                <div class="flex gap-2">
+                                    <button onclick="openEditModal('${auto.id}')" class="px-3 py-1 rounded small-text" style="background: #f0f9ff; color: #1e40af; font-size: ${fontSize * 0.875}px;">
+                                        Editar
+                                    </button>
+                                    <button onclick="deleteRecord('${auto.id}')" class="px-3 py-1 rounded small-text" style="background: #fee2e2; color: #991b1b; font-size: ${fontSize * 0.875}px;">
+                                        Excluir
+                                    </button>
+                                </div>
                             </div>
                         </div>
-                    `).join('') || `
+                    `;
+                    }).join('') || `
                         <div class="p-12 rounded-lg text-center" style="background: white; border: 1px solid #e2e8f0;">
                             <span class="text-6xl mb-4 block">⚡</span>
                             <p class="body-text mb-2" style="color: ${textColor}; font-size: ${fontSize}px;">Nenhuma automação criada</p>
-                            <p class="small-text" style="color: #64748b; font-size: ${fontSize * 0.875}px;">Crie sua primeira automação de WhatsApp</p>
+                            <p class="small-text" style="color: #64748b; font-size: ${fontSize * 0.875}px;">Crie sua primeira automação profissional com rotação de mensagens</p>
                         </div>
                     `}
                 </div>
             `;
+        }
+
+        function getAttachmentIcon(type) {
+            const icons = {
+                'image': '🖼️',
+                'video': '🎥',
+                'document': '📄',
+                'audio': '🎵',
+                'location': '📍',
+                'contact': '👤'
+            };
+            return icons[type] || '📎';
         }
 
         function openModal(type) {
@@ -1010,6 +1067,16 @@
             let formFields = '';
 
             if (type === 'automation') {
+                const messages = record.messages || [{ text: '', attachment: null }];
+                const delayConfig = record.delayConfig || {
+                    enabled: false,
+                    beforeStart: 20,
+                    minInterval: 20,
+                    maxInterval: 45,
+                    randomExtra: 6,
+                    messagesPerHour: 30
+                };
+                
                 formFields = `
                     <div>
                         <label class="block body-text mb-2" style="color: ${textColor}; font-size: ${fontSize}px;" for="name">Nome da Automação</label>
@@ -1024,15 +1091,90 @@
                         </select>
                     </div>
                     <div>
-                        <label class="block body-text mb-2" style="color: ${textColor}; font-size: ${fontSize}px;" for="action">Ação</label>
-                        <select id="action" class="w-full p-3 rounded-lg border border-gray-300" style="color: ${textColor}; font-size: ${fontSize}px;">
-                            <option value="Enviar WhatsApp" ${record.action === 'Enviar WhatsApp' ? 'selected' : ''}>Enviar WhatsApp</option>
-                            <option value="Enviar email" ${record.action === 'Enviar email' ? 'selected' : ''}>Enviar email</option>
-                        </select>
-                    </div>
-                    <div>
                         <label class="block body-text mb-2" style="color: ${textColor}; font-size: ${fontSize}px;" for="notes">Descrição</label>
-                        <textarea id="notes" rows="3" class="w-full p-3 rounded-lg border border-gray-300" style="color: ${textColor}; font-size: ${fontSize}px;">${record.notes || ''}</textarea>
+                        <textarea id="notes" rows="2" class="w-full p-3 rounded-lg border border-gray-300" style="color: ${textColor}; font-size: ${fontSize}px;">${record.notes || ''}</textarea>
+                    </div>
+
+                    <div class="p-4 rounded-lg" style="background: #f0fdf4; border: 1px solid #86efac;">
+                        <h4 class="body-text font-semibold mb-3" style="color: #166534; font-size: ${fontSize}px;">📱 Rotação de Mensagens (${messages.length}/5)</h4>
+                        <div id="messages-container" class="space-y-4">
+                            ${messages.map((msg, idx) => `
+                                <div class="message-item p-3 rounded" style="background: white; border: 1px solid #d1fae5;" data-index="${idx}">
+                                    <div class="flex items-center justify-between mb-2">
+                                        <span class="small-text font-semibold" style="color: ${primaryColor}; font-size: ${fontSize * 0.875}px;">Mensagem ${idx + 1}</span>
+                                        ${messages.length > 1 ? `<button type="button" onclick="removeMessage(${idx})" class="small-text px-2 py-1 rounded" style="background: #fee2e2; color: #991b1b; font-size: ${fontSize * 0.75}px;">Remover</button>` : ''}
+                                    </div>
+                                    <textarea 
+                                        class="message-text w-full p-2 rounded border border-gray-300 mb-2" 
+                                        rows="3" 
+                                        placeholder="Digite a mensagem ${idx + 1}..." 
+                                        style="color: ${textColor}; font-size: ${fontSize * 0.875}px;"
+                                    >${msg.text}</textarea>
+                                    
+                                    <div class="attachment-section">
+                                        <p class="small-text font-semibold mb-2" style="color: ${textColor}; font-size: ${fontSize * 0.875}px;">📎 Anexo (Opcional)</p>
+                                        <div class="flex flex-wrap gap-2 mb-3">
+                                            <button type="button" onclick="selectAttachmentType(${idx}, 'image')" class="attachment-btn px-3 py-1 rounded small-text" style="background: ${msg.attachment?.type === 'image' ? primaryColor : '#f1f5f9'}; color: ${msg.attachment?.type === 'image' ? 'white' : textColor}; font-size: ${fontSize * 0.75}px;">🖼️ Imagem</button>
+                                            <button type="button" onclick="selectAttachmentType(${idx}, 'video')" class="attachment-btn px-3 py-1 rounded small-text" style="background: ${msg.attachment?.type === 'video' ? primaryColor : '#f1f5f9'}; color: ${msg.attachment?.type === 'video' ? 'white' : textColor}; font-size: ${fontSize * 0.75}px;">🎥 Vídeo</button>
+                                            <button type="button" onclick="selectAttachmentType(${idx}, 'document')" class="attachment-btn px-3 py-1 rounded small-text" style="background: ${msg.attachment?.type === 'document' ? primaryColor : '#f1f5f9'}; color: ${msg.attachment?.type === 'document' ? 'white' : textColor}; font-size: ${fontSize * 0.75}px;">📄 Doc</button>
+                                            <button type="button" onclick="selectAttachmentType(${idx}, 'audio')" class="attachment-btn px-3 py-1 rounded small-text" style="background: ${msg.attachment?.type === 'audio' ? primaryColor : '#f1f5f9'}; color: ${msg.attachment?.type === 'audio' ? 'white' : textColor}; font-size: ${fontSize * 0.75}px;">🎵 Áudio</button>
+                                            <button type="button" onclick="selectAttachmentType(${idx}, 'location')" class="attachment-btn px-3 py-1 rounded small-text" style="background: ${msg.attachment?.type === 'location' ? primaryColor : '#f1f5f9'}; color: ${msg.attachment?.type === 'location' ? 'white' : textColor}; font-size: ${fontSize * 0.75}px;">📍 Local</button>
+                                            <button type="button" onclick="selectAttachmentType(${idx}, 'contact')" class="attachment-btn px-3 py-1 rounded small-text" style="background: ${msg.attachment?.type === 'contact' ? primaryColor : '#f1f5f9'}; color: ${msg.attachment?.type === 'contact' ? 'white' : textColor}; font-size: ${fontSize * 0.75}px;">👤 Contato</button>
+                                        </div>
+                                        <div id="attachment-fields-${idx}" class="attachment-fields space-y-2">
+                                            ${msg.attachment ? renderAttachmentFields(idx, msg.attachment, textColor, fontSize) : ''}
+                                        </div>
+                                    </div>
+                                </div>
+                            `).join('')}
+                        </div>
+                        ${messages.length < 5 ? `
+                            <button type="button" onclick="addMessage()" class="w-full mt-3 p-2 rounded body-text" style="background: ${primaryColor}; color: white; font-size: ${fontSize * 0.875}px;">
+                                + Adicionar Mensagem (${messages.length}/5)
+                            </button>
+                        ` : `
+                            <p class="text-center mt-3 small-text" style="color: #166534; font-size: ${fontSize * 0.875}px;">✓ Máximo de 5 mensagens atingido</p>
+                        `}
+                    </div>
+
+                    <div class="p-4 rounded-lg" style="background: #eff6ff; border: 1px solid #93c5fd;">
+                        <div class="flex items-center justify-between mb-3">
+                            <h4 class="body-text font-semibold" style="color: #1e40af; font-size: ${fontSize}px;">🔐 Proteção Anti-Bloqueio</h4>
+                            <label class="flex items-center gap-2 cursor-pointer">
+                                <input type="checkbox" id="delay-enabled" ${delayConfig.enabled ? 'checked' : ''} onchange="toggleDelayConfig(this.checked)" class="w-5 h-5">
+                                <span class="small-text" style="color: #1e40af; font-size: ${fontSize * 0.875}px;">Ativar</span>
+                            </label>
+                        </div>
+                        <div id="delay-config" style="display: ${delayConfig.enabled ? 'block' : 'none'};">
+                            <div class="grid grid-cols-2 gap-3 mb-3">
+                                <div>
+                                    <label class="block small-text mb-1" style="color: #1e40af; font-size: ${fontSize * 0.875}px;">⏰ Aguardar antes (s)</label>
+                                    <input type="number" id="delay-before" value="${delayConfig.beforeStart}" min="10" max="60" class="w-full p-2 rounded border border-gray-300" style="font-size: ${fontSize * 0.875}px;">
+                                </div>
+                                <div>
+                                    <label class="block small-text mb-1" style="color: #1e40af; font-size: ${fontSize * 0.875}px;">⏱️ Intervalo Min (s)</label>
+                                    <input type="number" id="delay-min" value="${delayConfig.minInterval}" min="15" max="120" class="w-full p-2 rounded border border-gray-300" style="font-size: ${fontSize * 0.875}px;">
+                                </div>
+                                <div>
+                                    <label class="block small-text mb-1" style="color: #1e40af; font-size: ${fontSize * 0.875}px;">⏱️ Intervalo Max (s)</label>
+                                    <input type="number" id="delay-max" value="${delayConfig.maxInterval}" min="20" max="180" class="w-full p-2 rounded border border-gray-300" style="font-size: ${fontSize * 0.875}px;">
+                                </div>
+                                <div>
+                                    <label class="block small-text mb-1" style="color: #1e40af; font-size: ${fontSize * 0.875}px;">🎲 Extra Aleatório (s)</label>
+                                    <input type="number" id="delay-random" value="${delayConfig.randomExtra}" min="3" max="15" class="w-full p-2 rounded border border-gray-300" style="font-size: ${fontSize * 0.875}px;">
+                                </div>
+                            </div>
+                            <div>
+                                <label class="block small-text mb-1" style="color: #1e40af; font-size: ${fontSize * 0.875}px;">📊 Limite por Hora</label>
+                                <input type="number" id="delay-per-hour" value="${delayConfig.messagesPerHour}" min="10" max="60" class="w-full p-2 rounded border border-gray-300" style="font-size: ${fontSize * 0.875}px;">
+                                <p class="small-text mt-1" style="color: #64748b; font-size: ${fontSize * 0.75}px;">Recomendado: 20-40 mensagens/hora</p>
+                            </div>
+                            <div class="mt-3 p-2 rounded" style="background: #fef3c7; border: 1px solid #fcd34d;">
+                                <p class="small-text" style="color: #92400e; font-size: ${fontSize * 0.75}px;">
+                                    ⚠️ <strong>Como funciona:</strong> Sistema aguarda ${delayConfig.beforeStart}s antes de começar, envia primeira mensagem, aguarda ${delayConfig.minInterval}-${delayConfig.maxInterval}s + ${delayConfig.randomExtra}s aleatórios, depois envia próxima mensagem. Limite: ${delayConfig.messagesPerHour} msgs/hora.
+                                </p>
+                            </div>
+                        </div>
                     </div>
                 `;
             } else {
@@ -1133,20 +1275,68 @@
                 type,
                 id: currentEditRecord?.id || `${type}_${Date.now()}`,
                 name: document.getElementById('name').value,
-                email: document.getElementById('email')?.value || '',
-                phone: document.getElementById('phone')?.value || '',
-                company: document.getElementById('company')?.value || '',
-                value: parseFloat(document.getElementById('value')?.value) || 0,
-                stage: document.getElementById('stage')?.value || 'new',
-                priority: document.getElementById('priority')?.value || 'medium',
-                notes: document.getElementById('notes').value,
-                status: 'active',
-                dueDate: document.getElementById('dueDate')?.value ? new Date(document.getElementById('dueDate').value).toISOString() : '',
-                trigger: document.getElementById('trigger')?.value || '',
-                action: document.getElementById('action')?.value || '',
                 createdAt: currentEditRecord?.createdAt || new Date().toISOString(),
                 updatedAt: new Date().toISOString()
             };
+
+            if (type === 'automation') {
+                // Coletar todas as mensagens
+                const messageItems = document.querySelectorAll('.message-item');
+                const messages = [];
+                messageItems.forEach((item, idx) => {
+                    const text = item.querySelector('.message-text').value;
+                    const attachmentType = item.querySelector('.attachment-fields')?.dataset.attachmentType;
+                    
+                    let attachment = null;
+                    if (attachmentType) {
+                        attachment = { type: attachmentType };
+                        
+                        if (attachmentType === 'image' || attachmentType === 'video' || attachmentType === 'document') {
+                            attachment.url = document.getElementById(`attachment-url-${idx}`)?.value || '';
+                            attachment.caption = document.getElementById(`attachment-caption-${idx}`)?.value || '';
+                        } else if (attachmentType === 'audio') {
+                            attachment.url = document.getElementById(`attachment-url-${idx}`)?.value || '';
+                        } else if (attachmentType === 'location') {
+                            attachment.latitude = document.getElementById(`attachment-lat-${idx}`)?.value || '';
+                            attachment.longitude = document.getElementById(`attachment-lng-${idx}`)?.value || '';
+                            attachment.name = document.getElementById(`attachment-name-${idx}`)?.value || '';
+                            attachment.address = document.getElementById(`attachment-address-${idx}`)?.value || '';
+                        } else if (attachmentType === 'contact') {
+                            attachment.name = document.getElementById(`attachment-name-${idx}`)?.value || '';
+                            attachment.phone = document.getElementById(`attachment-phone-${idx}`)?.value || '';
+                            attachment.email = document.getElementById(`attachment-email-${idx}`)?.value || '';
+                        }
+                    }
+                    
+                    messages.push({ text, attachment });
+                });
+                
+                // Coletar configuração de delay
+                const delayEnabled = document.getElementById('delay-enabled')?.checked || false;
+                const delayConfig = {
+                    enabled: delayEnabled,
+                    beforeStart: parseInt(document.getElementById('delay-before')?.value) || 20,
+                    minInterval: parseInt(document.getElementById('delay-min')?.value) || 20,
+                    maxInterval: parseInt(document.getElementById('delay-max')?.value) || 45,
+                    randomExtra: parseInt(document.getElementById('delay-random')?.value) || 6,
+                    messagesPerHour: parseInt(document.getElementById('delay-per-hour')?.value) || 30
+                };
+                
+                formData.trigger = document.getElementById('trigger').value;
+                formData.notes = document.getElementById('notes').value;
+                formData.messages = messages;
+                formData.delayConfig = delayConfig;
+            } else {
+                formData.email = document.getElementById('email')?.value || '';
+                formData.phone = document.getElementById('phone')?.value || '';
+                formData.company = document.getElementById('company')?.value || '';
+                formData.value = parseFloat(document.getElementById('value')?.value) || 0;
+                formData.stage = document.getElementById('stage')?.value || 'new';
+                formData.priority = document.getElementById('priority')?.value || 'medium';
+                formData.notes = document.getElementById('notes').value;
+                formData.status = 'active';
+                formData.dueDate = document.getElementById('dueDate')?.value ? new Date(document.getElementById('dueDate').value).toISOString() : '';
+            }
 
             if (currentEditRecord) {
                 const index = allRecords.findIndex(r => r.id === currentEditRecord.id);
@@ -1161,6 +1351,181 @@
             showToast(currentEditRecord ? 'Registro atualizado!' : 'Registro criado!', 'success');
             closeModal();
             updateCurrentView();
+        }
+
+        function addMessage() {
+            const container = document.getElementById('messages-container');
+            if (!container) return;
+            
+            const messageItems = container.querySelectorAll('.message-item');
+            if (messageItems.length >= 5) {
+                showToast('Máximo de 5 mensagens atingido', 'error');
+                return;
+            }
+            
+            const config = window.elementSdk?.config || defaultConfig;
+            const primaryColor = config.primary_color || defaultConfig.primary_color;
+            const textColor = config.text_color || defaultConfig.text_color;
+            const fontSize = config.font_size || defaultConfig.font_size;
+            const idx = messageItems.length;
+            
+            const newMessageHTML = `
+                <div class="message-item p-3 rounded" style="background: white; border: 1px solid #d1fae5;" data-index="${idx}">
+                    <div class="flex items-center justify-between mb-2">
+                        <span class="small-text font-semibold" style="color: ${primaryColor}; font-size: ${fontSize * 0.875}px;">Mensagem ${idx + 1}</span>
+                        <button type="button" onclick="removeMessage(${idx})" class="small-text px-2 py-1 rounded" style="background: #fee2e2; color: #991b1b; font-size: ${fontSize * 0.75}px;">Remover</button>
+                    </div>
+                    <textarea 
+                        class="message-text w-full p-2 rounded border border-gray-300 mb-2" 
+                        rows="3" 
+                        placeholder="Digite a mensagem ${idx + 1}..." 
+                        style="color: ${textColor}; font-size: ${fontSize * 0.875}px;"
+                    ></textarea>
+                    
+                    <div class="attachment-section">
+                        <p class="small-text font-semibold mb-2" style="color: ${textColor}; font-size: ${fontSize * 0.875}px;">📎 Anexo (Opcional)</p>
+                        <div class="flex flex-wrap gap-2 mb-3">
+                            <button type="button" onclick="selectAttachmentType(${idx}, 'image')" class="attachment-btn px-3 py-1 rounded small-text" style="background: #f1f5f9; color: ${textColor}; font-size: ${fontSize * 0.75}px;">🖼️ Imagem</button>
+                            <button type="button" onclick="selectAttachmentType(${idx}, 'video')" class="attachment-btn px-3 py-1 rounded small-text" style="background: #f1f5f9; color: ${textColor}; font-size: ${fontSize * 0.75}px;">🎥 Vídeo</button>
+                            <button type="button" onclick="selectAttachmentType(${idx}, 'document')" class="attachment-btn px-3 py-1 rounded small-text" style="background: #f1f5f9; color: ${textColor}; font-size: ${fontSize * 0.75}px;">📄 Doc</button>
+                            <button type="button" onclick="selectAttachmentType(${idx}, 'audio')" class="attachment-btn px-3 py-1 rounded small-text" style="background: #f1f5f9; color: ${textColor}; font-size: ${fontSize * 0.75}px;">🎵 Áudio</button>
+                            <button type="button" onclick="selectAttachmentType(${idx}, 'location')" class="attachment-btn px-3 py-1 rounded small-text" style="background: #f1f5f9; color: ${textColor}; font-size: ${fontSize * 0.75}px;">📍 Local</button>
+                            <button type="button" onclick="selectAttachmentType(${idx}, 'contact')" class="attachment-btn px-3 py-1 rounded small-text" style="background: #f1f5f9; color: ${textColor}; font-size: ${fontSize * 0.75}px;">👤 Contato</button>
+                        </div>
+                        <div id="attachment-fields-${idx}" class="attachment-fields space-y-2"></div>
+                    </div>
+                </div>
+            `;
+            
+            container.insertAdjacentHTML('beforeend', newMessageHTML);
+            
+            // Atualizar o botão de adicionar
+            const addButton = container.nextElementSibling;
+            if (messageItems.length + 1 >= 5 && addButton) {
+                addButton.outerHTML = `<p class="text-center mt-3 small-text" style="color: #166534; font-size: ${fontSize * 0.875}px;">✓ Máximo de 5 mensagens atingido</p>`;
+            } else if (addButton && addButton.tagName === 'BUTTON') {
+                addButton.innerHTML = `+ Adicionar Mensagem (${messageItems.length + 1}/5)`;
+            }
+            
+            showToast('Mensagem adicionada!', 'success');
+        }
+
+        function removeMessage(idx) {
+            const container = document.getElementById('messages-container');
+            if (!container) return;
+            
+            const messageItems = container.querySelectorAll('.message-item');
+            if (messageItems.length <= 1) {
+                showToast('Necessário pelo menos 1 mensagem', 'error');
+                return;
+            }
+            
+            messageItems[idx].remove();
+            
+            // Reindexar mensagens
+            const remainingItems = container.querySelectorAll('.message-item');
+            remainingItems.forEach((item, newIdx) => {
+                item.dataset.index = newIdx;
+                const label = item.querySelector('.small-text.font-semibold');
+                if (label) {
+                    label.textContent = `Mensagem ${newIdx + 1}`;
+                }
+            });
+            
+            // Atualizar botão de adicionar se necessário
+            const config = window.elementSdk?.config || defaultConfig;
+            const primaryColor = config.primary_color || defaultConfig.primary_color;
+            const fontSize = config.font_size || defaultConfig.font_size;
+            
+            const nextElement = container.nextElementSibling;
+            if (remainingItems.length < 5 && nextElement && nextElement.tagName === 'P') {
+                nextElement.outerHTML = `
+                    <button type="button" onclick="addMessage()" class="w-full mt-3 p-2 rounded body-text" style="background: ${primaryColor}; color: white; font-size: ${fontSize * 0.875}px;">
+                        + Adicionar Mensagem (${remainingItems.length}/5)
+                    </button>
+                `;
+            }
+            
+            showToast('Mensagem removida', 'success');
+        }
+
+        function toggleDelayConfig(enabled) {
+            const delayConfig = document.getElementById('delay-config');
+            if (delayConfig) {
+                delayConfig.style.display = enabled ? 'block' : 'none';
+            }
+        }
+
+        function selectAttachmentType(idx, type) {
+            const config = window.elementSdk?.config || defaultConfig;
+            const textColor = config.text_color || defaultConfig.text_color;
+            const fontSize = config.font_size || defaultConfig.font_size;
+            
+            const fieldsContainer = document.getElementById(`attachment-fields-${idx}`);
+            if (!fieldsContainer) return;
+            
+            // Atualizar botões
+            const messageItem = fieldsContainer.closest('.message-item');
+            const buttons = messageItem.querySelectorAll('.attachment-btn');
+            const primaryColor = config.primary_color || defaultConfig.primary_color;
+            
+            buttons.forEach(btn => {
+                btn.style.background = '#f1f5f9';
+                btn.style.color = textColor;
+            });
+            
+            const selectedBtn = Array.from(buttons).find(btn => btn.textContent.includes(getAttachmentIcon(type)));
+            if (selectedBtn) {
+                selectedBtn.style.background = primaryColor;
+                selectedBtn.style.color = 'white';
+            }
+            
+            fieldsContainer.dataset.attachmentType = type;
+            fieldsContainer.innerHTML = renderAttachmentFields(idx, { type }, textColor, fontSize);
+        }
+
+        function renderAttachmentFields(idx, attachment, textColor, fontSize) {
+            const type = attachment.type;
+            
+            if (type === 'image') {
+                return `
+                    <input type="url" id="attachment-url-${idx}" value="${attachment.url || ''}" placeholder="URL da imagem (https://...)" class="w-full p-2 rounded border border-gray-300" style="color: ${textColor}; font-size: ${fontSize * 0.875}px;">
+                    <input type="text" id="attachment-caption-${idx}" value="${attachment.caption || ''}" placeholder="Legenda (opcional)" class="w-full p-2 rounded border border-gray-300" style="color: ${textColor}; font-size: ${fontSize * 0.875}px;">
+                    <p class="small-text" style="color: #64748b; font-size: ${fontSize * 0.75}px;">Limite: 5MB (JPG, PNG)</p>
+                `;
+            } else if (type === 'video') {
+                return `
+                    <input type="url" id="attachment-url-${idx}" value="${attachment.url || ''}" placeholder="URL do vídeo (https://...)" class="w-full p-2 rounded border border-gray-300" style="color: ${textColor}; font-size: ${fontSize * 0.875}px;">
+                    <input type="text" id="attachment-caption-${idx}" value="${attachment.caption || ''}" placeholder="Legenda (opcional)" class="w-full p-2 rounded border border-gray-300" style="color: ${textColor}; font-size: ${fontSize * 0.875}px;">
+                    <p class="small-text" style="color: #64748b; font-size: ${fontSize * 0.75}px;">Limite: 16MB (MP4, 3GP)</p>
+                `;
+            } else if (type === 'document') {
+                return `
+                    <input type="url" id="attachment-url-${idx}" value="${attachment.url || ''}" placeholder="URL do documento (https://...)" class="w-full p-2 rounded border border-gray-300" style="color: ${textColor}; font-size: ${fontSize * 0.875}px;">
+                    <input type="text" id="attachment-caption-${idx}" value="${attachment.caption || ''}" placeholder="Legenda (opcional)" class="w-full p-2 rounded border border-gray-300" style="color: ${textColor}; font-size: ${fontSize * 0.875}px;">
+                    <p class="small-text" style="color: #64748b; font-size: ${fontSize * 0.75}px;">Limite: 100MB (PDF, DOC, etc)</p>
+                `;
+            } else if (type === 'audio') {
+                return `
+                    <input type="url" id="attachment-url-${idx}" value="${attachment.url || ''}" placeholder="URL do áudio (https://...)" class="w-full p-2 rounded border border-gray-300" style="color: ${textColor}; font-size: ${fontSize * 0.875}px;">
+                    <p class="small-text" style="color: #64748b; font-size: ${fontSize * 0.75}px;">Limite: 16MB (MP3, OGG)</p>
+                `;
+            } else if (type === 'location') {
+                return `
+                    <input type="text" id="attachment-lat-${idx}" value="${attachment.latitude || ''}" placeholder="Latitude (obrigatório)" class="w-full p-2 rounded border border-gray-300" style="color: ${textColor}; font-size: ${fontSize * 0.875}px;">
+                    <input type="text" id="attachment-lng-${idx}" value="${attachment.longitude || ''}" placeholder="Longitude (obrigatório)" class="w-full p-2 rounded border border-gray-300" style="color: ${textColor}; font-size: ${fontSize * 0.875}px;">
+                    <input type="text" id="attachment-name-${idx}" value="${attachment.name || ''}" placeholder="Nome do local (opcional)" class="w-full p-2 rounded border border-gray-300" style="color: ${textColor}; font-size: ${fontSize * 0.875}px;">
+                    <input type="text" id="attachment-address-${idx}" value="${attachment.address || ''}" placeholder="Endereço (opcional)" class="w-full p-2 rounded border border-gray-300" style="color: ${textColor}; font-size: ${fontSize * 0.875}px;">
+                `;
+            } else if (type === 'contact') {
+                return `
+                    <input type="text" id="attachment-name-${idx}" value="${attachment.name || ''}" placeholder="Nome completo (obrigatório)" class="w-full p-2 rounded border border-gray-300" style="color: ${textColor}; font-size: ${fontSize * 0.875}px;">
+                    <input type="tel" id="attachment-phone-${idx}" value="${attachment.phone || ''}" placeholder="Telefone (obrigatório)" class="w-full p-2 rounded border border-gray-300" style="color: ${textColor}; font-size: ${fontSize * 0.875}px;">
+                    <input type="email" id="attachment-email-${idx}" value="${attachment.email || ''}" placeholder="Email (opcional)" class="w-full p-2 rounded border border-gray-300" style="color: ${textColor}; font-size: ${fontSize * 0.875}px;">
+                `;
+            }
+            
+            return '';
         }
 
         function deleteRecord(id) {
@@ -1238,5 +1603,5 @@
         // Fallback final após 2 segundos
         setTimeout(tryInit, 2000);
     </script>
- <script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'9b7d795fb751f1db',t:'MTc2NzM5MDY0OC4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
+ <script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'9b7da64991f4f202',t:'MTc2NzM5MjQ4OC4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
 </html>
