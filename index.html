@@ -1,0 +1,2518 @@
+<!doctype html>
+<html lang="pt-BR" class="h-full">
+ <head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CRM White Label</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="/_sdk/element_sdk.js"></script>
+  <script src="/_sdk/data_sdk.js"></script>
+  <style>
+        body {
+            box-sizing: border-box;
+        }
+        
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateY(-10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        
+        @keyframes pulse {
+            0%, 100% {
+                opacity: 1;
+            }
+            50% {
+                opacity: 0.6;
+            }
+        }
+        
+        .slide-in {
+            animation: slideIn 0.3s ease-out;
+        }
+        
+        .pulse-animation {
+            animation: pulse 2s ease-in-out infinite;
+        }
+        
+        .toast {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            z-index: 1000;
+            padding: 16px 24px;
+            border-radius: 8px;
+            animation: slideIn 0.3s ease-out;
+        }
+        
+        .modal-backdrop {
+            background: rgba(0, 0, 0, 0.5);
+            backdrop-filter: blur(4px);
+        }
+        
+        .kanban-column {
+            min-height: 400px;
+        }
+        
+        .card-hover {
+            transition: all 0.2s ease;
+        }
+        
+        .card-hover:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+        }
+
+        .dragging {
+            opacity: 0.5;
+        }
+
+        .drag-over {
+            border: 2px dashed #6366f1 !important;
+            background: rgba(99, 102, 241, 0.05) !important;
+        }
+
+        .calendar-grid {
+            display: grid;
+            grid-template-columns: repeat(7, 1fr);
+            gap: 1px;
+        }
+
+        .calendar-day {
+            min-height: 100px;
+            transition: all 0.2s;
+        }
+
+        .calendar-day:hover {
+            background: rgba(99, 102, 241, 0.05);
+        }
+
+        .metric-card {
+            position: relative;
+            overflow: hidden;
+        }
+
+        .metric-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 3px;
+            background: linear-gradient(90deg, #6366f1, #8b5cf6);
+        }
+    </style>
+  <style>@view-transition { navigation: auto; }</style>
+ </head>
+ <body class="h-full">
+  <div id="app" class="h-full w-full flex overflow-auto"></div>
+  <script>
+        const defaultConfig = {
+            primary_color: '#6366f1',
+            secondary_surface: '#f8fafc',
+            text_color: '#1e293b',
+            action_primary: '#6366f1',
+            action_secondary: '#64748b',
+            font_family: 'Inter',
+            font_size: 16,
+            company_name: 'Meu CRM',
+            welcome_message: 'Bem-vindo ao seu CRM',
+            leads_title: 'Pipeline de Vendas',
+            contacts_title: 'Gerenciar Contatos',
+            tasks_title: 'Minhas Tarefas',
+            calendar_title: 'Calendário',
+            metrics_title: 'Métricas em Tempo Real'
+        };
+
+        let currentView = 'dashboard';
+        let allRecords = [];
+        let showingModal = false;
+        let currentEditRecord = null;
+        let draggedElement = null;
+        let currentMonth = new Date().getMonth();
+        let currentYear = new Date().getFullYear();
+        let whatsappConnected = false;
+
+        const dataHandler = {
+            onDataChanged(data) {
+                allRecords = data;
+                updateCurrentView();
+            }
+        };
+
+        async function initializeApp() {
+            const dataResult = await window.dataSdk.init(dataHandler);
+            
+            if (!dataResult.isOk) {
+                console.error('Failed to initialize Data SDK');
+                return;
+            }
+
+            if (window.elementSdk) {
+                window.elementSdk.init({
+                    defaultConfig,
+                    onConfigChange: async (config) => {
+                        const appEl = document.getElementById('app');
+                        if (!appEl) return;
+
+                        const customFont = config.font_family || defaultConfig.font_family;
+                        const baseSize = config.font_size || defaultConfig.font_size;
+                        const baseFontStack = 'system-ui, -apple-system, sans-serif';
+
+                        document.documentElement.style.setProperty('--primary-color', config.primary_color || defaultConfig.primary_color);
+                        document.documentElement.style.setProperty('--secondary-surface', config.secondary_surface || defaultConfig.secondary_surface);
+                        document.documentElement.style.setProperty('--text-color', config.text_color || defaultConfig.text_color);
+                        document.documentElement.style.setProperty('--action-primary', config.action_primary || defaultConfig.action_primary);
+                        document.documentElement.style.setProperty('--action-secondary', config.action_secondary || defaultConfig.action_secondary);
+
+                        appEl.style.fontFamily = `${customFont}, ${baseFontStack}`;
+                        
+                        const companyNameEl = document.getElementById('company-name');
+                        if (companyNameEl) companyNameEl.textContent = config.company_name || defaultConfig.company_name;
+                        
+                        const welcomeEl = document.getElementById('welcome-message');
+                        if (welcomeEl) welcomeEl.textContent = config.welcome_message || defaultConfig.welcome_message;
+                        
+                        const leadsTitleEl = document.getElementById('leads-title');
+                        if (leadsTitleEl) leadsTitleEl.textContent = config.leads_title || defaultConfig.leads_title;
+                        
+                        const contactsTitleEl = document.getElementById('contacts-title');
+                        if (contactsTitleEl) contactsTitleEl.textContent = config.contacts_title || defaultConfig.contacts_title;
+                        
+                        const tasksTitleEl = document.getElementById('tasks-title');
+                        if (tasksTitleEl) tasksTitleEl.textContent = config.tasks_title || defaultConfig.tasks_title;
+
+                        const calendarTitleEl = document.getElementById('calendar-title');
+                        if (calendarTitleEl) calendarTitleEl.textContent = config.calendar_title || defaultConfig.calendar_title;
+
+                        const metricsTitleEl = document.getElementById('metrics-title');
+                        if (metricsTitleEl) metricsTitleEl.textContent = config.metrics_title || defaultConfig.metrics_title;
+
+                        const titles = appEl.querySelectorAll('.title-text');
+                        titles.forEach(el => el.style.fontSize = `${baseSize * 1.5}px`);
+                        
+                        const subtitles = appEl.querySelectorAll('.subtitle-text');
+                        subtitles.forEach(el => el.style.fontSize = `${baseSize * 1.25}px`);
+                        
+                        const bodyText = appEl.querySelectorAll('.body-text');
+                        bodyText.forEach(el => el.style.fontSize = `${baseSize}px`);
+                        
+                        const smallText = appEl.querySelectorAll('.small-text');
+                        smallText.forEach(el => el.style.fontSize = `${baseSize * 0.875}px`);
+                    },
+                    mapToCapabilities: (config) => ({
+                        recolorables: [
+                            {
+                                get: () => config.primary_color || defaultConfig.primary_color,
+                                set: (value) => {
+                                    if (window.elementSdk && window.elementSdk.config) {
+                                        window.elementSdk.config.primary_color = value;
+                                        window.elementSdk.setConfig({ primary_color: value });
+                                    }
+                                }
+                            },
+                            {
+                                get: () => config.secondary_surface || defaultConfig.secondary_surface,
+                                set: (value) => {
+                                    if (window.elementSdk && window.elementSdk.config) {
+                                        window.elementSdk.config.secondary_surface = value;
+                                        window.elementSdk.setConfig({ secondary_surface: value });
+                                    }
+                                }
+                            },
+                            {
+                                get: () => config.text_color || defaultConfig.text_color,
+                                set: (value) => {
+                                    if (window.elementSdk && window.elementSdk.config) {
+                                        window.elementSdk.config.text_color = value;
+                                        window.elementSdk.setConfig({ text_color: value });
+                                    }
+                                }
+                            },
+                            {
+                                get: () => config.action_primary || defaultConfig.action_primary,
+                                set: (value) => {
+                                    if (window.elementSdk && window.elementSdk.config) {
+                                        window.elementSdk.config.action_primary = value;
+                                        window.elementSdk.setConfig({ action_primary: value });
+                                    }
+                                }
+                            },
+                            {
+                                get: () => config.action_secondary || defaultConfig.action_secondary,
+                                set: (value) => {
+                                    if (window.elementSdk && window.elementSdk.config) {
+                                        window.elementSdk.config.action_secondary = value;
+                                        window.elementSdk.setConfig({ action_secondary: value });
+                                    }
+                                }
+                            }
+                        ],
+                        borderables: [],
+                        fontEditable: {
+                            get: () => config.font_family || defaultConfig.font_family,
+                            set: (value) => {
+                                if (window.elementSdk && window.elementSdk.config) {
+                                    window.elementSdk.config.font_family = value;
+                                    window.elementSdk.setConfig({ font_family: value });
+                                }
+                            }
+                        },
+                        fontSizeable: {
+                            get: () => config.font_size || defaultConfig.font_size,
+                            set: (value) => {
+                                if (window.elementSdk && window.elementSdk.config) {
+                                    window.elementSdk.config.font_size = value;
+                                    window.elementSdk.setConfig({ font_size: value });
+                                }
+                            }
+                        }
+                    }),
+                    mapToEditPanelValues: (config) => new Map([
+                        ['company_name', config.company_name || defaultConfig.company_name],
+                        ['welcome_message', config.welcome_message || defaultConfig.welcome_message],
+                        ['leads_title', config.leads_title || defaultConfig.leads_title],
+                        ['contacts_title', config.contacts_title || defaultConfig.contacts_title],
+                        ['tasks_title', config.tasks_title || defaultConfig.tasks_title],
+                        ['calendar_title', config.calendar_title || defaultConfig.calendar_title],
+                        ['metrics_title', config.metrics_title || defaultConfig.metrics_title]
+                    ])
+                });
+            }
+
+            renderApp();
+        }
+
+        function renderApp() {
+            const config = window.elementSdk?.config || defaultConfig;
+            const primaryColor = config.primary_color || defaultConfig.primary_color;
+            const surfaceColor = config.secondary_surface || defaultConfig.secondary_surface;
+            const textColor = config.text_color || defaultConfig.text_color;
+
+            const app = document.getElementById('app');
+            app.innerHTML = `
+                <div class="flex h-full w-full" style="background: ${surfaceColor};">
+                    <div class="w-64 h-full flex flex-col" style="background: white; border-right: 1px solid #e2e8f0;">
+                        <div class="p-6 border-b border-gray-200">
+                            <h1 id="company-name" class="title-text font-bold" style="color: ${primaryColor}; font-size: ${(config.font_size || defaultConfig.font_size) * 1.5}px;">
+                                ${config.company_name || defaultConfig.company_name}
+                            </h1>
+                            <p class="small-text" style="color: #64748b; font-size: ${(config.font_size || defaultConfig.font_size) * 0.875}px;">
+                                White Label CRM
+                            </p>
+                        </div>
+                        
+                        <nav class="flex-1 p-4 overflow-y-auto">
+                            <button onclick="changeView('dashboard')" class="nav-item w-full text-left p-3 rounded-lg mb-2 body-text" style="background: ${currentView === 'dashboard' ? primaryColor : 'transparent'}; color: ${currentView === 'dashboard' ? 'white' : textColor};">
+                                📊 Dashboard
+                            </button>
+                            <button onclick="changeView('metrics')" class="nav-item w-full text-left p-3 rounded-lg mb-2 body-text" style="background: ${currentView === 'metrics' ? primaryColor : 'transparent'}; color: ${currentView === 'metrics' ? 'white' : textColor};">
+                                📈 Métricas
+                            </button>
+                            <button onclick="changeView('leads')" class="nav-item w-full text-left p-3 rounded-lg mb-2 body-text" style="background: ${currentView === 'leads' ? primaryColor : 'transparent'}; color: ${currentView === 'leads' ? 'white' : textColor};">
+                                🎯 Pipeline
+                            </button>
+                            <button onclick="changeView('calendar')" class="nav-item w-full text-left p-3 rounded-lg mb-2 body-text" style="background: ${currentView === 'calendar' ? primaryColor : 'transparent'}; color: ${currentView === 'calendar' ? 'white' : textColor};">
+                                📅 Calendário
+                            </button>
+                            <button onclick="changeView('contacts')" class="nav-item w-full text-left p-3 rounded-lg mb-2 body-text" style="background: ${currentView === 'contacts' ? primaryColor : 'transparent'}; color: ${currentView === 'contacts' ? 'white' : textColor};">
+                                👥 Contatos
+                            </button>
+                            <button onclick="changeView('tasks')" class="nav-item w-full text-left p-3 rounded-lg mb-2 body-text" style="background: ${currentView === 'tasks' ? primaryColor : 'transparent'}; color: ${currentView === 'tasks' ? 'white' : textColor};">
+                                ✓ Tarefas
+                            </button>
+                            <button onclick="changeView('automation')" class="nav-item w-full text-left p-3 rounded-lg mb-2 body-text" style="background: ${currentView === 'automation' ? primaryColor : 'transparent'}; color: ${currentView === 'automation' ? 'white' : textColor};">
+                                ⚡ Automação
+                            </button>
+                        </nav>
+                        
+                        <div class="p-4 border-t border-gray-200">
+                            <p class="small-text" style="color: #64748b; font-size: ${(config.font_size || defaultConfig.font_size) * 0.875}px;">
+                                💼 Plano: Professional
+                            </p>
+                        </div>
+                    </div>
+
+                    <div class="flex-1 flex flex-col h-full overflow-hidden">
+                        <div class="p-6 border-b border-gray-200" style="background: white;">
+                            <h2 id="welcome-message" class="subtitle-text font-semibold" style="color: ${textColor}; font-size: ${(config.font_size || defaultConfig.font_size) * 1.25}px;">
+                                ${config.welcome_message || defaultConfig.welcome_message}
+                            </h2>
+                        </div>
+
+                        <div id="content-area" class="flex-1 overflow-auto p-6">
+                        </div>
+                    </div>
+                </div>
+            `;
+
+            updateCurrentView();
+        }
+
+        function changeView(view) {
+            currentView = view;
+            renderApp();
+        }
+
+        function updateCurrentView() {
+            const contentArea = document.getElementById('content-area');
+            if (!contentArea) return;
+
+            switch (currentView) {
+                case 'dashboard':
+                    renderDashboard(contentArea);
+                    break;
+                case 'metrics':
+                    renderMetrics(contentArea);
+                    break;
+                case 'leads':
+                    renderLeadsDragDrop(contentArea);
+                    break;
+                case 'calendar':
+                    renderCalendar(contentArea);
+                    break;
+                case 'contacts':
+                    renderContacts(contentArea);
+                    break;
+                case 'tasks':
+                    renderTasks(contentArea);
+                    break;
+                case 'automation':
+                    renderAutomation(contentArea);
+                    break;
+            }
+        }
+
+        function renderDashboard(container) {
+            const config = window.elementSdk?.config || defaultConfig;
+            const primaryColor = config.primary_color || defaultConfig.primary_color;
+            const surfaceColor = config.secondary_surface || defaultConfig.secondary_surface;
+            const textColor = config.text_color || defaultConfig.text_color;
+
+            const totalLeads = allRecords.filter(r => r.type === 'lead').length;
+            const totalContacts = allRecords.filter(r => r.type === 'contact').length;
+            const totalTasks = allRecords.filter(r => r.type === 'task').length;
+            const completedTasks = allRecords.filter(r => r.type === 'task' && r.status === 'completed').length;
+
+            container.innerHTML = `
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+                    <div class="p-6 rounded-lg card-hover" style="background: white; border: 1px solid #e2e8f0;">
+                        <div class="flex items-center justify-between mb-2">
+                            <span class="body-text" style="color: ${textColor};">Total de Leads</span>
+                            <span class="text-2xl">🎯</span>
+                        </div>
+                        <p class="text-3xl font-bold" style="color: ${primaryColor};">${totalLeads}</p>
+                    </div>
+                    
+                    <div class="p-6 rounded-lg card-hover" style="background: white; border: 1px solid #e2e8f0;">
+                        <div class="flex items-center justify-between mb-2">
+                            <span class="body-text" style="color: ${textColor};">Contatos</span>
+                            <span class="text-2xl">👥</span>
+                        </div>
+                        <p class="text-3xl font-bold" style="color: ${primaryColor};">${totalContacts}</p>
+                    </div>
+                    
+                    <div class="p-6 rounded-lg card-hover" style="background: white; border: 1px solid #e2e8f0;">
+                        <div class="flex items-center justify-between mb-2">
+                            <span class="body-text" style="color: ${textColor};">Tarefas</span>
+                            <span class="text-2xl">✓</span>
+                        </div>
+                        <p class="text-3xl font-bold" style="color: ${primaryColor};">${totalTasks}</p>
+                    </div>
+                    
+                    <div class="p-6 rounded-lg card-hover" style="background: white; border: 1px solid #e2e8f0;">
+                        <div class="flex items-center justify-between mb-2">
+                            <span class="body-text" style="color: ${textColor};">Concluídas</span>
+                            <span class="text-2xl">✔️</span>
+                        </div>
+                        <p class="text-3xl font-bold" style="color: ${primaryColor};">${completedTasks}</p>
+                    </div>
+                </div>
+
+                <div class="p-6 rounded-lg" style="background: white; border: 1px solid #e2e8f0;">
+                    <h3 class="subtitle-text font-semibold mb-4" style="color: ${textColor};">Atividade Recente</h3>
+                    <div id="recent-activity" class="space-y-3">
+                        ${allRecords.slice(-5).reverse().map(record => `
+                            <div class="flex items-center justify-between p-3 rounded" style="background: ${surfaceColor};">
+                                <div>
+                                    <p class="body-text font-medium" style="color: ${textColor};">${record.name}</p>
+                                    <p class="small-text" style="color: #64748b;">${record.type === 'lead' ? '🎯 Lead' : record.type === 'contact' ? '👥 Contato' : '✓ Tarefa'}</p>
+                                </div>
+                                <span class="small-text" style="color: #64748b;">${new Date(record.createdAt).toLocaleDateString('pt-BR')}</span>
+                            </div>
+                        `).join('') || '<p class="body-text text-center py-8" style="color: #94a3b8;">Nenhuma atividade recente</p>'}
+                    </div>
+                </div>
+            `;
+        }
+
+        function renderMetrics(container) {
+            const config = window.elementSdk?.config || defaultConfig;
+            const primaryColor = config.primary_color || defaultConfig.primary_color;
+            const surfaceColor = config.secondary_surface || defaultConfig.secondary_surface;
+            const textColor = config.text_color || defaultConfig.text_color;
+            const actionPrimary = config.action_primary || defaultConfig.action_primary;
+
+            const leads = allRecords.filter(r => r.type === 'lead');
+            const contacts = allRecords.filter(r => r.type === 'contact');
+            const tasks = allRecords.filter(r => r.type === 'task');
+            
+            const newLeads = leads.filter(l => l.stage === 'new').length;
+            const qualifiedLeads = leads.filter(l => l.stage === 'qualified').length;
+            const wonLeads = leads.filter(l => l.stage === 'won').length;
+            const totalValue = leads.reduce((sum, l) => sum + (l.value || 0), 0);
+            const conversionRate = leads.length > 0 ? ((wonLeads / leads.length) * 100).toFixed(1) : 0;
+            const pendingTasks = tasks.filter(t => t.status !== 'completed').length;
+
+            container.innerHTML = `
+                <div class="mb-6 flex items-center justify-between">
+                    <div>
+                        <h3 id="metrics-title" class="subtitle-text font-semibold mb-2" style="color: ${textColor}; font-size: ${(config.font_size || defaultConfig.font_size) * 1.25}px;">
+                            ${config.metrics_title || defaultConfig.metrics_title}
+                        </h3>
+                        <p class="body-text" style="color: #64748b;">Atualizado agora mesmo <span class="pulse-animation">●</span></p>
+                    </div>
+                    <button onclick="updateCurrentView()" class="px-4 py-2 rounded-lg body-text" style="background: ${actionPrimary}; color: white;">
+                        🔄 Atualizar
+                    </button>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+                    <div class="metric-card p-6 rounded-lg card-hover" style="background: white; border: 1px solid #e2e8f0;">
+                        <div class="flex items-center justify-between mb-3">
+                            <span class="small-text" style="color: #64748b;">Novos Leads</span>
+                            <span class="text-2xl">🎯</span>
+                        </div>
+                        <p class="text-4xl font-bold mb-2" style="color: ${primaryColor};">${newLeads}</p>
+                        <p class="small-text" style="color: #10b981;">↗️ +${Math.floor(newLeads * 0.15)} esta semana</p>
+                    </div>
+
+                    <div class="metric-card p-6 rounded-lg card-hover" style="background: white; border: 1px solid #e2e8f0;">
+                        <div class="flex items-center justify-between mb-3">
+                            <span class="small-text" style="color: #64748b;">Qualificados</span>
+                            <span class="text-2xl">✅</span>
+                        </div>
+                        <p class="text-4xl font-bold mb-2" style="color: ${primaryColor};">${qualifiedLeads}</p>
+                        <p class="small-text" style="color: #10b981;">↗️ +${Math.floor(qualifiedLeads * 0.20)} esta semana</p>
+                    </div>
+
+                    <div class="metric-card p-6 rounded-lg card-hover" style="background: white; border: 1px solid #e2e8f0;">
+                        <div class="flex items-center justify-between mb-3">
+                            <span class="small-text" style="color: #64748b;">Taxa de Conversão</span>
+                            <span class="text-2xl">📊</span>
+                        </div>
+                        <p class="text-4xl font-bold mb-2" style="color: ${primaryColor};">${conversionRate}%</p>
+                        <p class="small-text" style="color: #10b981;">↗️ +2.5% este mês</p>
+                    </div>
+
+                    <div class="metric-card p-6 rounded-lg card-hover" style="background: white; border: 1px solid #e2e8f0;">
+                        <div class="flex items-center justify-between mb-3">
+                            <span class="small-text" style="color: #64748b;">Receita Total</span>
+                            <span class="text-2xl">💰</span>
+                        </div>
+                        <p class="text-4xl font-bold mb-2" style="color: ${primaryColor};">R$ ${(totalValue/1000).toFixed(0)}k</p>
+                        <p class="small-text" style="color: #10b981;">↗️ +15% este mês</p>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
+                    <div class="p-6 rounded-lg" style="background: white; border: 1px solid #e2e8f0;">
+                        <h4 class="body-text font-semibold mb-4" style="color: ${textColor};">Performance do Time</h4>
+                        <div class="space-y-4">
+                            <div>
+                                <div class="flex justify-between mb-2">
+                                    <span class="small-text" style="color: ${textColor};">Tempo Médio de Resposta</span>
+                                    <span class="small-text font-bold" style="color: ${primaryColor};">2.5h</span>
+                                </div>
+                                <div class="w-full h-2 rounded-full" style="background: ${surfaceColor};">
+                                    <div class="h-2 rounded-full" style="width: 75%; background: ${primaryColor};"></div>
+                                </div>
+                            </div>
+
+                            <div>
+                                <div class="flex justify-between mb-2">
+                                    <span class="small-text" style="color: ${textColor};">Tarefas Concluídas</span>
+                                    <span class="small-text font-bold" style="color: ${primaryColor};">${tasks.length - pendingTasks}/${tasks.length}</span>
+                                </div>
+                                <div class="w-full h-2 rounded-full" style="background: ${surfaceColor};">
+                                    <div class="h-2 rounded-full" style="width: ${tasks.length > 0 ? ((tasks.length - pendingTasks) / tasks.length * 100) : 0}%; background: ${primaryColor};"></div>
+                                </div>
+                            </div>
+
+                            <div>
+                                <div class="flex justify-between mb-2">
+                                    <span class="small-text" style="color: ${textColor};">Meta do Mês</span>
+                                    <span class="small-text font-bold" style="color: ${primaryColor};">R$ ${totalValue.toLocaleString('pt-BR')}/R$ 100k</span>
+                                </div>
+                                <div class="w-full h-2 rounded-full" style="background: ${surfaceColor};">
+                                    <div class="h-2 rounded-full" style="width: ${Math.min((totalValue / 100000) * 100, 100)}%; background: ${primaryColor};"></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="p-6 rounded-lg" style="background: white; border: 1px solid #e2e8f0;">
+                        <h4 class="body-text font-semibold mb-4" style="color: ${textColor};">Distribuição por Estágio</h4>
+                        <div class="space-y-3">
+                            ${['new', 'contacted', 'qualified', 'proposal', 'won'].map(stage => {
+                                const stageCount = leads.filter(l => l.stage === stage).length;
+                                const stageNames = {
+                                    'new': 'Novo',
+                                    'contacted': 'Contatado',
+                                    'qualified': 'Qualificado',
+                                    'proposal': 'Proposta',
+                                    'won': 'Ganho'
+                                };
+                                const icons = {
+                                    'new': '🆕',
+                                    'contacted': '📞',
+                                    'qualified': '✅',
+                                    'proposal': '📄',
+                                    'won': '🏆'
+                                };
+                                return `
+                                    <div class="flex items-center justify-between p-3 rounded" style="background: ${surfaceColor};">
+                                        <div class="flex items-center gap-2">
+                                            <span>${icons[stage]}</span>
+                                            <span class="small-text" style="color: ${textColor};">${stageNames[stage]}</span>
+                                        </div>
+                                        <span class="small-text font-bold" style="color: ${primaryColor};">${stageCount}</span>
+                                    </div>
+                                `;
+                            }).join('')}
+                        </div>
+                    </div>
+
+                    <div class="p-6 rounded-lg" style="background: white; border: 1px solid #e2e8f0;">
+                        <h4 class="body-text font-semibold mb-4" style="color: ${textColor};">Atividade Hoje</h4>
+                        <div class="space-y-4">
+                            <div class="p-4 rounded text-center" style="background: linear-gradient(135deg, ${primaryColor} 0%, #8b5cf6 100%);">
+                                <p class="text-5xl font-bold mb-2" style="color: white;">${allRecords.filter(r => {
+                                    const today = new Date().toDateString();
+                                    const recordDate = new Date(r.createdAt).toDateString();
+                                    return today === recordDate;
+                                }).length}</p>
+                                <p class="small-text" style="color: rgba(255,255,255,0.9);">Atividades Hoje</p>
+                            </div>
+
+                            <div class="grid grid-cols-2 gap-3">
+                                <div class="p-3 rounded text-center" style="background: ${surfaceColor};">
+                                    <p class="text-2xl font-bold" style="color: ${primaryColor};">${contacts.length}</p>
+                                    <p class="small-text" style="color: #64748b;">Contatos</p>
+                                </div>
+                                <div class="p-3 rounded text-center" style="background: ${surfaceColor};">
+                                    <p class="text-2xl font-bold" style="color: ${primaryColor};">${pendingTasks}</p>
+                                    <p class="small-text" style="color: #64748b;">Pendentes</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        function renderLeadsDragDrop(container) {
+            const config = window.elementSdk?.config || defaultConfig;
+            const primaryColor = config.primary_color || defaultConfig.primary_color;
+            const surfaceColor = config.secondary_surface || defaultConfig.secondary_surface;
+            const textColor = config.text_color || defaultConfig.text_color;
+            const actionPrimary = config.action_primary || defaultConfig.action_primary;
+
+            const leads = allRecords.filter(r => r.type === 'lead');
+            const stages = ['new', 'contacted', 'qualified', 'proposal', 'won'];
+            const stageNames = {
+                'new': 'Novo',
+                'contacted': 'Contatado',
+                'qualified': 'Qualificado',
+                'proposal': 'Proposta',
+                'won': 'Ganho'
+            };
+
+            container.innerHTML = `
+                <div class="mb-6 flex items-center justify-between">
+                    <div>
+                        <h3 id="leads-title" class="subtitle-text font-semibold mb-2" style="color: ${textColor}; font-size: ${(config.font_size || defaultConfig.font_size) * 1.25}px;">
+                            ${config.leads_title || defaultConfig.leads_title}
+                        </h3>
+                        <p class="body-text" style="color: #64748b;">Arraste e solte cards entre colunas</p>
+                    </div>
+                    <button onclick="openModal('lead')" class="px-4 py-2 rounded-lg body-text font-medium" style="background: ${actionPrimary}; color: white;">
+                        + Novo Lead
+                    </button>
+                </div>
+
+                <div class="flex gap-4 overflow-x-auto pb-4">
+                    ${stages.map(stage => {
+                        const stageLeads = leads.filter(l => l.stage === stage);
+                        const stageValue = stageLeads.reduce((sum, l) => sum + (l.value || 0), 0);
+                        return `
+                            <div class="flex-shrink-0 w-80">
+                                <div class="p-4 rounded-lg mb-3" style="background: white; border: 1px solid #e2e8f0;">
+                                    <h4 class="body-text font-semibold mb-1" style="color: ${textColor};">${stageNames[stage]}</h4>
+                                    <div class="flex items-center justify-between">
+                                        <p class="small-text" style="color: #64748b;">${stageLeads.length} leads</p>
+                                        <p class="small-text font-semibold" style="color: ${primaryColor};">R$ ${(stageValue/1000).toFixed(0)}k</p>
+                                    </div>
+                                </div>
+                                <div 
+                                    class="kanban-column space-y-3 p-3 rounded-lg min-h-96" 
+                                    style="background: ${surfaceColor};"
+                                    data-stage="${stage}"
+                                    ondragover="handleDragOver(event)"
+                                    ondragleave="handleDragLeave(event)"
+                                    ondrop="handleDrop(event, '${stage}')"
+                                >
+                                    ${stageLeads.map(lead => `
+                                        <div 
+                                            class="p-4 rounded-lg card-hover cursor-move" 
+                                            style="background: white; border: 1px solid #e2e8f0;"
+                                            draggable="true"
+                                            ondragstart="handleDragStart(event, '${lead.__backendId}')"
+                                            ondragend="handleDragEnd(event)"
+                                            onclick="openEditModal('${lead.__backendId}')"
+                                        >
+                                            <div class="flex items-start justify-between mb-2">
+                                                <h5 class="body-text font-medium flex-1" style="color: ${textColor};">${lead.name}</h5>
+                                                <span class="text-lg cursor-move">⋮⋮</span>
+                                            </div>
+                                            <p class="small-text mb-2" style="color: #64748b;">${lead.company || 'Sem empresa'}</p>
+                                            ${lead.value ? `<p class="small-text font-semibold" style="color: ${primaryColor};">R$ ${lead.value.toLocaleString('pt-BR')}</p>` : ''}
+                                            ${lead.tags ? `<div class="mt-2"><span class="small-text px-2 py-1 rounded" style="background: ${surfaceColor}; color: ${textColor};">${lead.tags}</span></div>` : ''}
+                                        </div>
+                                    `).join('')}
+                                </div>
+                            </div>
+                        `;
+                    }).join('')}
+                </div>
+
+                <div class="mt-6 p-4 rounded-lg" style="background: #fef3c7; border: 1px solid #fde68a;">
+                    <p class="small-text" style="color: #92400e;">💡 <strong>Dica:</strong> Clique para editar ou arraste os cards entre as colunas para mudar o estágio do lead</p>
+                </div>
+            `;
+        }
+
+        function handleDragStart(event, leadId) {
+            draggedElement = leadId;
+            event.currentTarget.classList.add('dragging');
+        }
+
+        function handleDragEnd(event) {
+            event.currentTarget.classList.remove('dragging');
+            draggedElement = null;
+        }
+
+        function handleDragOver(event) {
+            event.preventDefault();
+            event.currentTarget.classList.add('drag-over');
+        }
+
+        function handleDragLeave(event) {
+            event.currentTarget.classList.remove('drag-over');
+        }
+
+        async function handleDrop(event, newStage) {
+            event.preventDefault();
+            event.currentTarget.classList.remove('drag-over');
+            
+            if (!draggedElement) return;
+
+            const lead = allRecords.find(r => r.__backendId === draggedElement);
+            if (!lead || lead.stage === newStage) return;
+
+            const updatedLead = { ...lead, stage: newStage, updatedAt: new Date().toISOString() };
+            
+            const result = await window.dataSdk.update(updatedLead);
+            
+            if (result.isOk) {
+                showToast(`Lead movido para ${newStage}`, 'success');
+            } else {
+                showToast('Erro ao mover lead', 'error');
+            }
+        }
+
+        function renderCalendar(container) {
+            const config = window.elementSdk?.config || defaultConfig;
+            const primaryColor = config.primary_color || defaultConfig.primary_color;
+            const surfaceColor = config.secondary_surface || defaultConfig.secondary_surface;
+            const textColor = config.text_color || defaultConfig.text_color;
+            const actionPrimary = config.action_primary || defaultConfig.action_primary;
+
+            const monthNames = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
+            const firstDay = new Date(currentYear, currentMonth, 1);
+            const lastDay = new Date(currentYear, currentMonth + 1, 0);
+            const daysInMonth = lastDay.getDate();
+            const startingDayOfWeek = firstDay.getDay();
+
+            const tasks = allRecords.filter(r => r.type === 'task' && r.dueDate);
+            const tasksByDate = {};
+            tasks.forEach(task => {
+                const date = new Date(task.dueDate).toDateString();
+                if (!tasksByDate[date]) tasksByDate[date] = [];
+                tasksByDate[date].push(task);
+            });
+
+            container.innerHTML = `
+                <div class="mb-6">
+                    <div class="flex items-center justify-between mb-4">
+                        <h3 id="calendar-title" class="subtitle-text font-semibold" style="color: ${textColor}; font-size: ${(config.font_size || defaultConfig.font_size) * 1.25}px;">
+                            ${config.calendar_title || defaultConfig.calendar_title}
+                        </h3>
+                        <button onclick="openModal('task')" class="px-4 py-2 rounded-lg body-text font-medium" style="background: ${actionPrimary}; color: white;">
+                            + Nova Tarefa
+                        </button>
+                    </div>
+                    
+                    <div class="flex items-center justify-between p-4 rounded-lg mb-4" style="background: white; border: 1px solid #e2e8f0;">
+                        <button onclick="changeMonth(-1)" class="p-2 rounded" style="color: ${textColor};">
+                            ← Anterior
+                        </button>
+                        <h4 class="body-text font-bold" style="color: ${primaryColor};">${monthNames[currentMonth]} ${currentYear}</h4>
+                        <button onclick="changeMonth(1)" class="p-2 rounded" style="color: ${textColor};">
+                            Próximo →
+                        </button>
+                    </div>
+                </div>
+
+                <div class="rounded-lg overflow-hidden" style="background: white; border: 1px solid #e2e8f0;">
+                    <div class="calendar-grid" style="background: ${surfaceColor};">
+                        ${['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'].map(day => `
+                            <div class="p-4 text-center body-text font-semibold" style="color: ${textColor}; background: white; border-bottom: 2px solid ${primaryColor};">
+                                ${day}
+                            </div>
+                        `).join('')}
+                    </div>
+
+                    <div class="calendar-grid">
+                        ${Array.from({ length: startingDayOfWeek }, () => `
+                            <div class="calendar-day p-2" style="background: ${surfaceColor}; border: 1px solid #e2e8f0;"></div>
+                        `).join('')}
+                        
+                        ${Array.from({ length: daysInMonth }, (_, i) => {
+                            const day = i + 1;
+                            const date = new Date(currentYear, currentMonth, day);
+                            const dateStr = date.toDateString();
+                            const isToday = dateStr === new Date().toDateString();
+                            const dayTasks = tasksByDate[dateStr] || [];
+                            
+                            return `
+                                <div class="calendar-day p-2" style="background: white; border: 1px solid #e2e8f0; ${isToday ? `border: 2px solid ${primaryColor};` : ''}">
+                                    <div class="flex items-center justify-between mb-2">
+                                        <span class="small-text font-semibold" style="color: ${isToday ? primaryColor : textColor};">${day}</span>
+                                        ${isToday ? `<span class="small-text px-2 py-1 rounded" style="background: ${primaryColor}; color: white;">Hoje</span>` : ''}
+                                    </div>
+                                    <div class="space-y-1">
+                                        ${dayTasks.slice(0, 2).map(task => `
+                                            <div class="p-2 rounded cursor-pointer small-text" style="background: ${surfaceColor}; color: ${textColor};" onclick="openEditModal('${task.__backendId}')">
+                                                ${task.priority === 'high' ? '🔴' : task.priority === 'medium' ? '🟡' : '🟢'} ${task.name.substring(0, 15)}${task.name.length > 15 ? '...' : ''}
+                                            </div>
+                                        `).join('')}
+                                        ${dayTasks.length > 2 ? `<div class="small-text text-center" style="color: #64748b;">+${dayTasks.length - 2} mais</div>` : ''}
+                                    </div>
+                                </div>
+                            `;
+                        }).join('')}
+                    </div>
+                </div>
+
+                <div class="mt-6 grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div class="p-4 rounded-lg" style="background: white; border: 1px solid #e2e8f0;">
+                        <div class="flex items-center gap-2 mb-2">
+                            <span>🔴</span>
+                            <span class="body-text font-semibold" style="color: ${textColor};">Alta Prioridade</span>
+                        </div>
+                        <p class="text-2xl font-bold" style="color: ${primaryColor};">${tasks.filter(t => t.priority === 'high' && t.status !== 'completed').length}</p>
+                    </div>
+                    
+                    <div class="p-4 rounded-lg" style="background: white; border: 1px solid #e2e8f0;">
+                        <div class="flex items-center gap-2 mb-2">
+                            <span>���</span>
+                            <span class="body-text font-semibold" style="color: ${textColor};">Média Prioridade</span>
+                        </div>
+                        <p class="text-2xl font-bold" style="color: ${primaryColor};">${tasks.filter(t => t.priority === 'medium' && t.status !== 'completed').length}</p>
+                    </div>
+                    
+                    <div class="p-4 rounded-lg" style="background: white; border: 1px solid #e2e8f0;">
+                        <div class="flex items-center gap-2 mb-2">
+                            <span>🟢</span>
+                            <span class="body-text font-semibold" style="color: ${textColor};">Baixa Prioridade</span>
+                        </div>
+                        <p class="text-2xl font-bold" style="color: ${primaryColor};">${tasks.filter(t => t.priority === 'low' && t.status !== 'completed').length}</p>
+                    </div>
+                </div>
+            `;
+        }
+
+        function changeMonth(delta) {
+            currentMonth += delta;
+            if (currentMonth > 11) {
+                currentMonth = 0;
+                currentYear++;
+            } else if (currentMonth < 0) {
+                currentMonth = 11;
+                currentYear--;
+            }
+            updateCurrentView();
+        }
+
+        function renderContacts(container) {
+            const config = window.elementSdk?.config || defaultConfig;
+            const primaryColor = config.primary_color || defaultConfig.primary_color;
+            const textColor = config.text_color || defaultConfig.text_color;
+            const surfaceColor = config.secondary_surface || defaultConfig.secondary_surface;
+            const actionPrimary = config.action_primary || defaultConfig.action_primary;
+
+            const contacts = allRecords.filter(r => r.type === 'contact');
+
+            container.innerHTML = `
+                <div class="mb-6 flex items-center justify-between">
+                    <h3 id="contacts-title" class="subtitle-text font-semibold" style="color: ${textColor}; font-size: ${(config.font_size || defaultConfig.font_size) * 1.25}px;">
+                        ${config.contacts_title || defaultConfig.contacts_title}
+                    </h3>
+                    <button onclick="openModal('contact')" class="px-4 py-2 rounded-lg body-text font-medium" style="background: ${actionPrimary}; color: white;">
+                        + Novo Contato
+                    </button>
+                </div>
+
+                <div class="rounded-lg overflow-hidden" style="background: white; border: 1px solid #e2e8f0;">
+                    <table class="w-full">
+                        <thead style="background: ${surfaceColor};">
+                            <tr>
+                                <th class="text-left p-4 body-text font-semibold" style="color: ${textColor};">Nome</th>
+                                <th class="text-left p-4 body-text font-semibold" style="color: ${textColor};">Email</th>
+                                <th class="text-left p-4 body-text font-semibold" style="color: ${textColor};">Telefone</th>
+                                <th class="text-left p-4 body-text font-semibold" style="color: ${textColor};">Empresa</th>
+                                <th class="text-left p-4 body-text font-semibold" style="color: ${textColor};">Ações</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${contacts.map(contact => `
+                                <tr class="border-t border-gray-200">
+                                    <td class="p-4 body-text" style="color: ${textColor};">${contact.name}</td>
+                                    <td class="p-4 small-text" style="color: #64748b;">${contact.email || '-'}</td>
+                                    <td class="p-4 small-text" style="color: #64748b;">${contact.phone || '-'}</td>
+                                    <td class="p-4 small-text" style="color: #64748b;">${contact.company || '-'}</td>
+                                    <td class="p-4">
+                                        <button onclick="openEditModal('${contact.__backendId}')" class="px-3 py-1 rounded small-text" style="background: ${surfaceColor}; color: ${textColor};">
+                                            Editar
+                                        </button>
+                                    </td>
+                                </tr>
+                            `).join('') || `
+                                <tr>
+                                    <td colspan="5" class="p-8 text-center body-text" style="color: #94a3b8;">
+                                        Nenhum contato cadastrado
+                                    </td>
+                                </tr>
+                            `}
+                        </tbody>
+                    </table>
+                </div>
+            `;
+        }
+
+        function renderTasks(container) {
+            const config = window.elementSdk?.config || defaultConfig;
+            const primaryColor = config.primary_color || defaultConfig.primary_color;
+            const textColor = config.text_color || defaultConfig.text_color;
+            const surfaceColor = config.secondary_surface || defaultConfig.secondary_surface;
+            const actionPrimary = config.action_primary || defaultConfig.action_primary;
+
+            const tasks = allRecords.filter(r => r.type === 'task');
+            const pendingTasks = tasks.filter(t => t.status !== 'completed');
+            const completedTasks = tasks.filter(t => t.status === 'completed');
+
+            container.innerHTML = `
+                <div class="mb-6 flex items-center justify-between">
+                    <h3 id="tasks-title" class="subtitle-text font-semibold" style="color: ${textColor}; font-size: ${(config.font_size || defaultConfig.font_size) * 1.25}px;">
+                        ${config.tasks_title || defaultConfig.tasks_title}
+                    </h3>
+                    <button onclick="openModal('task')" class="px-4 py-2 rounded-lg body-text font-medium" style="background: ${actionPrimary}; color: white;">
+                        + Nova Tarefa
+                    </button>
+                </div>
+
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    <div class="p-6 rounded-lg" style="background: white; border: 1px solid #e2e8f0;">
+                        <h4 class="body-text font-semibold mb-4" style="color: ${textColor};">Pendentes (${pendingTasks.length})</h4>
+                        <div class="space-y-3">
+                            ${pendingTasks.map(task => `
+                                <div class="p-4 rounded-lg" style="background: ${surfaceColor};">
+                                    <div class="flex items-start justify-between">
+                                        <div class="flex-1">
+                                            <h5 class="body-text font-medium mb-1" style="color: ${textColor};">${task.name}</h5>
+                                            ${task.notes ? `<p class="small-text mb-2" style="color: #64748b;">${task.notes}</p>` : ''}
+                                            ${task.dueDate ? `<p class="small-text mb-2" style="color: #64748b;">📅 ${new Date(task.dueDate).toLocaleDateString('pt-BR')}</p>` : ''}
+                                            <span class="small-text px-2 py-1 rounded" style="background: ${task.priority === 'high' ? '#fee2e2' : task.priority === 'medium' ? '#fef3c7' : '#f0f9ff'}; color: ${task.priority === 'high' ? '#991b1b' : task.priority === 'medium' ? '#92400e' : '#1e40af'};">
+                                                ${task.priority === 'high' ? 'Alta' : task.priority === 'medium' ? 'Média' : 'Baixa'}
+                                            </span>
+                                        </div>
+                                        <button onclick="completeTask('${task.__backendId}')" class="ml-3 px-3 py-1 rounded small-text" style="background: ${actionPrimary}; color: white;">
+                                            Concluir
+                                        </button>
+                                    </div>
+                                </div>
+                            `).join('') || '<p class="body-text text-center py-8" style="color: #94a3b8;">Nenhuma tarefa pendente</p>'}
+                        </div>
+                    </div>
+
+                    <div class="p-6 rounded-lg" style="background: white; border: 1px solid #e2e8f0;">
+                        <h4 class="body-text font-semibold mb-4" style="color: ${textColor};">Concluídas (${completedTasks.length})</h4>
+                        <div class="space-y-3">
+                            ${completedTasks.map(task => `
+                                <div class="p-4 rounded-lg" style="background: ${surfaceColor}; opacity: 0.7;">
+                                    <div class="flex items-start justify-between">
+                                        <div class="flex-1">
+                                            <h5 class="body-text font-medium line-through mb-1" style="color: ${textColor};">${task.name}</h5>
+                                            ${task.notes ? `<p class="small-text mb-2" style="color: #64748b;">${task.notes}</p>` : ''}
+                                        </div>
+                                        <span class="ml-3 text-xl">✓</span>
+                                    </div>
+                                </div>
+                            `).join('') || '<p class="body-text text-center py-8" style="color: #94a3b8;">Nenhuma tarefa concluída</p>'}
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        async function completeTask(id) {
+            const task = allRecords.find(r => r.__backendId === id);
+            if (!task) return;
+
+            const updatedTask = { ...task, status: 'completed', updatedAt: new Date().toISOString() };
+            
+            const button = event.target;
+            button.disabled = true;
+            button.textContent = 'Concluindo...';
+
+            const result = await window.dataSdk.update(updatedTask);
+            
+            if (!result.isOk) {
+                showToast('Erro ao concluir tarefa', 'error');
+                button.disabled = false;
+                button.textContent = 'Concluir';
+            }
+        }
+
+        function openModal(type) {
+            currentEditRecord = null;
+            showingModal = true;
+            renderModal(type);
+        }
+
+        function openEditModal(id) {
+            currentEditRecord = allRecords.find(r => r.__backendId === id);
+            if (!currentEditRecord) return;
+            showingModal = true;
+            renderModal(currentEditRecord.type);
+        }
+
+        function closeModal() {
+            showingModal = false;
+            const modal = document.getElementById('modal');
+            if (modal) modal.remove();
+        }
+
+        function renderModal(type) {
+            const config = window.elementSdk?.config || defaultConfig;
+            const primaryColor = config.primary_color || defaultConfig.primary_color;
+            const textColor = config.text_color || defaultConfig.text_color;
+            const actionPrimary = config.action_primary || defaultConfig.action_primary;
+            const actionSecondary = config.action_secondary || defaultConfig.action_secondary;
+
+            const isEdit = currentEditRecord !== null;
+            const record = currentEditRecord || {};
+
+            const modalTitle = isEdit ? 
+                (type === 'lead' ? 'Editar Lead' : type === 'contact' ? 'Editar Contato' : 'Editar Tarefa') :
+                (type === 'lead' ? 'Novo Lead' : type === 'contact' ? 'Novo Contato' : 'Nova Tarefa');
+
+            const existingModal = document.getElementById('modal');
+            if (existingModal) existingModal.remove();
+
+            const modalHTML = `
+                <div id="modal" class="modal-backdrop fixed inset-0 flex items-center justify-center p-4" style="z-index: 1000;">
+                    <div class="rounded-lg p-6 w-full max-w-md slide-in" style="background: white; max-height: 90%; overflow-y: auto;">
+                        <div class="flex items-center justify-between mb-6">
+                            <h3 class="subtitle-text font-semibold" style="color: ${textColor};">${modalTitle}</h3>
+                            <button onclick="closeModal()" class="text-2xl" style="color: ${actionSecondary};">&times;</button>
+                        </div>
+
+                        <form id="record-form" class="space-y-4">
+                            <div>
+                                <label class="block body-text mb-2" style="color: ${textColor};" for="name">Nome</label>
+                                <input type="text" id="name" required value="${record.name || ''}" class="w-full p-3 rounded-lg border border-gray-300 body-text" style="color: ${textColor};">
+                            </div>
+
+                            ${type !== 'task' ? `
+                                <div>
+                                    <label class="block body-text mb-2" style="color: ${textColor};" for="email">Email</label>
+                                    <input type="email" id="email" value="${record.email || ''}" class="w-full p-3 rounded-lg border border-gray-300 body-text" style="color: ${textColor};">
+                                </div>
+
+                                <div>
+                                    <label class="block body-text mb-2" style="color: ${textColor};" for="phone">Telefone</label>
+                                    <input type="tel" id="phone" value="${record.phone || ''}" class="w-full p-3 rounded-lg border border-gray-300 body-text" style="color: ${textColor};">
+                                </div>
+
+                                <div>
+                                    <label class="block body-text mb-2" style="color: ${textColor};" for="company">Empresa</label>
+                                    <input type="text" id="company" value="${record.company || ''}" class="w-full p-3 rounded-lg border border-gray-300 body-text" style="color: ${textColor};">
+                                </div>
+                            ` : ''}
+
+                            ${type === 'lead' ? `
+                                <div>
+                                    <label class="block body-text mb-2" style="color: ${textColor};" for="value">Valor (R$)</label>
+                                    <input type="number" id="value" value="${record.value || ''}" class="w-full p-3 rounded-lg border border-gray-300 body-text" style="color: ${textColor};">
+                                </div>
+
+                                <div>
+                                    <label class="block body-text mb-2" style="color: ${textColor};" for="stage">Estágio</label>
+                                    <select id="stage" class="w-full p-3 rounded-lg border border-gray-300 body-text" style="color: ${textColor};">
+                                        <option value="new" ${record.stage === 'new' ? 'selected' : ''}>Novo</option>
+                                        <option value="contacted" ${record.stage === 'contacted' ? 'selected' : ''}>Contatado</option>
+                                        <option value="qualified" ${record.stage === 'qualified' ? 'selected' : ''}>Qualificado</option>
+                                        <option value="proposal" ${record.stage === 'proposal' ? 'selected' : ''}>Proposta</option>
+                                        <option value="won" ${record.stage === 'won' ? 'selected' : ''}>Ganho</option>
+                                    </select>
+                                </div>
+
+                                <div>
+                                    <label class="block body-text mb-2" style="color: ${textColor};" for="tags">Tags</label>
+                                    <input type="text" id="tags" value="${record.tags || ''}" placeholder="Ex: Urgente, VIP" class="w-full p-3 rounded-lg border border-gray-300 body-text" style="color: ${textColor};">
+                                </div>
+                            ` : ''}
+
+                            ${type === 'task' ? `
+                                <div>
+                                    <label class="block body-text mb-2" style="color: ${textColor};" for="priority">Prioridade</label>
+                                    <select id="priority" class="w-full p-3 rounded-lg border border-gray-300 body-text" style="color: ${textColor};">
+                                        <option value="low" ${record.priority === 'low' ? 'selected' : ''}>Baixa</option>
+                                        <option value="medium" ${record.priority === 'medium' ? 'selected' : ''}>Média</option>
+                                        <option value="high" ${record.priority === 'high' ? 'selected' : ''}>Alta</option>
+                                    </select>
+                                </div>
+
+                                <div>
+                                    <label class="block body-text mb-2" style="color: ${textColor};" for="dueDate">Data de Vencimento</label>
+                                    <input type="date" id="dueDate" value="${record.dueDate ? new Date(record.dueDate).toISOString().split('T')[0] : ''}" class="w-full p-3 rounded-lg border border-gray-300 body-text" style="color: ${textColor};">
+                                </div>
+                            ` : ''}
+
+                            <div>
+                                <label class="block body-text mb-2" style="color: ${textColor};" for="notes">Observações</label>
+                                <textarea id="notes" rows="3" class="w-full p-3 rounded-lg border border-gray-300 body-text" style="color: ${textColor};">${record.notes || ''}</textarea>
+                            </div>
+
+                            <div class="flex gap-3 pt-4">
+                                ${isEdit ? `
+                                    <button type="button" onclick="deleteRecord('${record.__backendId}')" class="px-4 py-2 rounded-lg body-text" style="background: #fee2e2; color: #991b1b;">
+                                        Excluir
+                                    </button>
+                                ` : ''}
+                                <button type="button" onclick="closeModal()" class="flex-1 px-4 py-2 rounded-lg body-text" style="background: #f1f5f9; color: ${textColor};">
+                                    Cancelar
+                                </button>
+                                <button type="submit" class="flex-1 px-4 py-2 rounded-lg body-text font-medium" style="background: ${actionPrimary}; color: white;">
+                                    ${isEdit ? 'Salvar' : 'Criar'}
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            `;
+
+            document.body.insertAdjacentHTML('beforeend', modalHTML);
+
+            document.getElementById('record-form').addEventListener('submit', async (e) => {
+                e.preventDefault();
+                await saveRecord(type);
+            });
+        }
+
+        async function saveRecord(type) {
+            if (allRecords.length >= 999 && !currentEditRecord) {
+                showToast('Limite de 999 registros atingido. Por favor, exclua alguns itens primeiro.', 'error');
+                return;
+            }
+
+            const formData = {
+                type,
+                name: document.getElementById('name').value,
+                email: document.getElementById('email')?.value || '',
+                phone: document.getElementById('phone')?.value || '',
+                company: document.getElementById('company')?.value || '',
+                value: parseFloat(document.getElementById('value')?.value) || 0,
+                stage: document.getElementById('stage')?.value || 'new',
+                priority: document.getElementById('priority')?.value || 'medium',
+                notes: document.getElementById('notes').value,
+                status: 'active',
+                dueDate: document.getElementById('dueDate')?.value ? new Date(document.getElementById('dueDate').value).toISOString() : '',
+                tags: document.getElementById('tags')?.value || '',
+                updatedAt: new Date().toISOString()
+            };
+
+            const submitButton = document.querySelector('#record-form button[type="submit"]');
+            submitButton.disabled = true;
+            submitButton.textContent = 'Salvando...';
+
+            let result;
+            if (currentEditRecord) {
+                result = await window.dataSdk.update({ ...currentEditRecord, ...formData });
+            } else {
+                result = await window.dataSdk.create({
+                    ...formData,
+                    id: `${type}_${Date.now()}`,
+                    createdAt: new Date().toISOString()
+                });
+            }
+
+            if (result.isOk) {
+                showToast(currentEditRecord ? 'Registro atualizado' : 'Registro criado', 'success');
+                closeModal();
+            } else {
+                showToast('Erro ao salvar registro', 'error');
+                submitButton.disabled = false;
+                submitButton.textContent = currentEditRecord ? 'Salvar' : 'Criar';
+            }
+        }
+
+        async function deleteRecord(id) {
+            const record = allRecords.find(r => r.__backendId === id);
+            if (!record) return;
+
+            const deleteButton = event.target;
+            const originalText = deleteButton.textContent;
+            deleteButton.disabled = true;
+            deleteButton.textContent = 'Excluindo...';
+
+            const result = await window.dataSdk.delete(record);
+
+            if (result.isOk) {
+                showToast('Registro excluído', 'success');
+                closeModal();
+            } else {
+                showToast('Erro ao excluir registro', 'error');
+                deleteButton.disabled = false;
+                deleteButton.textContent = originalText;
+            }
+        }
+
+        function showToast(message, type = 'success') {
+            const bgColor = type === 'success' ? '#10b981' : '#ef4444';
+            
+            const toast = document.createElement('div');
+            toast.className = 'toast body-text';
+            toast.style.background = bgColor;
+            toast.style.color = 'white';
+            toast.textContent = message;
+            
+            document.body.appendChild(toast);
+            
+            setTimeout(() => toast.remove(), 3000);
+        }
+
+        function renderAutomation(container) {
+            const config = window.elementSdk?.config || defaultConfig;
+            const primaryColor = config.primary_color || defaultConfig.primary_color;
+            const surfaceColor = config.secondary_surface || defaultConfig.secondary_surface;
+            const textColor = config.text_color || defaultConfig.text_color;
+            const actionPrimary = config.action_primary || defaultConfig.action_primary;
+            const actionSecondary = config.action_secondary || defaultConfig.action_secondary;
+
+            const automations = allRecords.filter(r => r.type === 'automation');
+            const activeAutomations = automations.filter(a => a.status === 'active').length;
+
+            container.innerHTML = `
+                <div class="mb-6 flex items-center justify-between">
+                    <div>
+                        <h3 class="subtitle-text font-semibold mb-2" style="color: ${textColor}; font-size: ${(config.font_size || defaultConfig.font_size) * 1.25}px;">
+                            ⚡ Automação de Marketing e Vendas
+                        </h3>
+                        <p class="body-text" style="color: #64748b;">Configure fluxos automatizados para aumentar a produtividade</p>
+                    </div>
+                    <button onclick="openAutomationModal()" class="px-4 py-2 rounded-lg body-text font-medium" style="background: ${actionPrimary}; color: white;">
+                        + Nova Automação
+                    </button>
+                </div>
+
+                <div class="mb-8 p-6 rounded-lg" style="background: white; border: 2px solid ${whatsappConnected ? '#10b981' : '#e2e8f0'};">
+                    <div class="flex items-start justify-between mb-4">
+                        <div class="flex items-center gap-3">
+                            <span class="text-4xl">📱</span>
+                            <div>
+                                <h4 class="body-text font-semibold mb-1" style="color: ${textColor};">WhatsApp Business (Baileys)</h4>
+                                <p class="small-text" id="whatsapp-status" style="color: ${whatsappConnected ? '#10b981' : '#64748b'};">
+                                    ${whatsappConnected ? '✅ Conectado e pronto para enviar mensagens' : '⚪ Não conectado - Clique para conectar'}
+                                </p>
+                            </div>
+                        </div>
+                        <button 
+                            id="whatsapp-connect-btn"
+                            onclick="toggleWhatsAppConnection()" 
+                            class="px-4 py-2 rounded-lg body-text font-medium" 
+                            style="background: ${whatsappConnected ? '#fee2e2' : actionPrimary}; color: ${whatsappConnected ? '#991b1b' : 'white'};">
+                            ${whatsappConnected ? 'Desconectar' : '🔗 Conectar WhatsApp'}
+                        </button>
+                    </div>
+
+                    <div id="whatsapp-qr-container" style="display: none;">
+                        <div class="p-6 rounded-lg text-center" style="background: ${surfaceColor};">
+                            <p class="body-text font-semibold mb-4" style="color: ${textColor};">📲 Escaneie o QR Code com seu WhatsApp</p>
+                            <div class="flex justify-center mb-4">
+                                <div id="qr-code-display" class="p-4 rounded-lg" style="background: white; border: 2px solid ${primaryColor};">
+                                    <canvas id="qr-canvas" width="256" height="256"></canvas>
+                                </div>
+                            </div>
+                            <div class="space-y-2 text-left max-w-md mx-auto">
+                                <p class="small-text" style="color: #64748b;">
+                                    <strong>1.</strong> Abra o WhatsApp no seu celular<br>
+                                    <strong>2.</strong> Toque em Menu (��) ou Configurações<br>
+                                    <strong>3.</strong> Toque em "Aparelhos conectados"<br>
+                                    <strong>4.</strong> Toque em "Conectar um aparelho"<br>
+                                    <strong>5.</strong> Aponte seu celular para esta tela
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div id="whatsapp-connected-info" style="display: ${whatsappConnected ? 'block' : 'none'};">
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                            <div class="p-4 rounded-lg text-center" style="background: ${surfaceColor};">
+                                <p class="text-2xl mb-2">📤</p>
+                                <p class="body-text font-semibold" style="color: ${textColor};">${automations.filter(a => a.action === 'Enviar WhatsApp').length}</p>
+                                <p class="small-text" style="color: #64748b;">Automações WhatsApp</p>
+                            </div>
+                            <div class="p-4 rounded-lg text-center" style="background: ${surfaceColor};">
+                                <p class="text-2xl mb-2">✅</p>
+                                <p class="body-text font-semibold" style="color: ${textColor};">Ativo</p>
+                                <p class="small-text" style="color: #64748b;">Status da Conexão</p>
+                            </div>
+                            <div class="p-4 rounded-lg text-center" style="background: ${surfaceColor};">
+                                <p class="text-2xl mb-2">💬</p>
+                                <p class="body-text font-semibold" id="messages-count" style="color: ${textColor};">${Math.floor(Math.random() * 50) + 10}</p>
+                                <p class="small-text" style="color: #64748b;">Mensagens Enviadas</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="mt-4 p-4 rounded-lg" style="background: #fef3c7; border: 1px solid #fde68a;">
+                        <p class="small-text" style="color: #92400e;">
+                            <strong>⚠️ Demonstração:</strong> Esta é uma interface de exemplo. A conexão real com WhatsApp requer backend com Baileys configurado no servidor.
+                        </p>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+                    <div class="p-6 rounded-lg card-hover" style="background: white; border: 1px solid #e2e8f0;">
+                        <div class="flex items-center justify-between mb-2">
+                            <span class="body-text" style="color: ${textColor};">Automações Ativas</span>
+                            <span class="text-2xl">⚡</span>
+                        </div>
+                        <p class="text-3xl font-bold" style="color: ${primaryColor};">${activeAutomations}</p>
+                        <p class="small-text mt-2" style="color: #10b981;">✓ Funcionando</p>
+                    </div>
+
+                    <div class="p-6 rounded-lg card-hover" style="background: white; border: 1px solid #e2e8f0;">
+                        <div class="flex items-center justify-between mb-2">
+                            <span class="body-text" style="color: ${textColor};">Execuções Hoje</span>
+                            <span class="text-2xl">🔄</span>
+                        </div>
+                        <p class="text-3xl font-bold" style="color: ${primaryColor};">${automations.length * 12}</p>
+                        <p class="small-text mt-2" style="color: #10b981;">↗️ +18% vs ontem</p>
+                    </div>
+
+                    <div class="p-6 rounded-lg card-hover" style="background: white; border: 1px solid #e2e8f0;">
+                        <div class="flex items-center justify-between mb-2">
+                            <span class="body-text" style="color: ${textColor};">Tempo Economizado</span>
+                            <span class="text-2xl">⏱️</span>
+                        </div>
+                        <p class="text-3xl font-bold" style="color: ${primaryColor};">${automations.length * 3}h</p>
+                        <p class="small-text mt-2" style="color: #64748b;">Esta semana</p>
+                    </div>
+                </div>
+
+                <div class="mb-8">
+                    <h4 class="body-text font-semibold mb-4" style="color: ${textColor};">Templates Populares</h4>
+                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                        <div class="p-6 rounded-lg card-hover cursor-pointer" style="background: white; border: 1px solid #e2e8f0;" onclick="createFromTemplate('whatsapp')">
+                            <div class="flex items-start justify-between mb-3">
+                                <span class="text-3xl">📱</span>
+                                <span class="small-text px-2 py-1 rounded" style="background: #dcfce7; color: #14532d;">WhatsApp</span>
+                            </div>
+                            <h5 class="body-text font-semibold mb-2" style="color: ${textColor};">Mensagem WhatsApp</h5>
+                            <p class="small-text mb-3" style="color: #64748b;">Envie mensagens via WhatsApp automaticamente usando Baileys</p>
+                            <button class="px-3 py-1 rounded small-text" style="background: ${surfaceColor}; color: ${actionPrimary};">
+                                Usar Template →
+                            </button>
+                        </div>
+
+                        <div class="p-6 rounded-lg card-hover cursor-pointer" style="background: white; border: 1px solid #e2e8f0;" onclick="createFromTemplate('welcome')">
+                            <div class="flex items-start justify-between mb-3">
+                                <span class="text-3xl">👋</span>
+                                <span class="small-text px-2 py-1 rounded" style="background: ${surfaceColor}; color: ${textColor};">Popular</span>
+                            </div>
+                            <h5 class="body-text font-semibold mb-2" style="color: ${textColor};">Email de Boas-vindas</h5>
+                            <p class="small-text mb-3" style="color: #64748b;">Envie um email automaticamente quando um novo lead é criado</p>
+                            <button class="px-3 py-1 rounded small-text" style="background: ${surfaceColor}; color: ${actionPrimary};">
+                                Usar Template →
+                            </button>
+                        </div>
+
+                        <div class="p-6 rounded-lg card-hover cursor-pointer" style="background: white; border: 1px solid #e2e8f0;" onclick="createFromTemplate('followup')">
+                            <div class="flex items-start justify-between mb-3">
+                                <span class="text-3xl">📧</span>
+                                <span class="small-text px-2 py-1 rounded" style="background: ${surfaceColor}; color: ${textColor};">Novo</span>
+                            </div>
+                            <h5 class="body-text font-semibold mb-2" style="color: ${textColor};">Follow-up Automático</h5>
+                            <p class="small-text mb-3" style="color: #64748b;">Envie follow-ups após 3 dias sem resposta do lead</p>
+                            <button class="px-3 py-1 rounded small-text" style="background: ${surfaceColor}; color: ${actionPrimary};">
+                                Usar Template →
+                            </button>
+                        </div>
+
+                        <div class="p-6 rounded-lg card-hover cursor-pointer" style="background: white; border: 1px solid #e2e8f0;" onclick="createFromTemplate('task')">
+                            <div class="flex items-start justify-between mb-3">
+                                <span class="text-3xl">✅</span>
+                                <span class="small-text px-2 py-1 rounded" style="background: ${surfaceColor}; color: ${textColor};">Eficiente</span>
+                            </div>
+                            <h5 class="body-text font-semibold mb-2" style="color: ${textColor};">Criar Tarefa Automática</h5>
+                            <p class="small-text mb-3" style="color: #64748b;">Crie tarefas automaticamente quando lead muda de estágio</p>
+                            <button class="px-3 py-1 rounded small-text" style="background: ${surfaceColor}; color: ${actionPrimary};">
+                                Usar Template →
+                            </button>
+                        </div>
+
+                        <div class="p-6 rounded-lg card-hover cursor-pointer" style="background: white; border: 1px solid #e2e8f0;" onclick="createFromTemplate('notification')">
+                            <div class="flex items-start justify-between mb-3">
+                                <span class="text-3xl">🔔</span>
+                                <span class="small-text px-2 py-1 rounded" style="background: ${surfaceColor}; color: ${textColor};">Útil</span>
+                            </div>
+                            <h5 class="body-text font-semibold mb-2" style="color: ${textColor};">Notificação de Equipe</h5>
+                            <p class="small-text mb-3" style="color: #64748b;">Notifique a equipe quando um lead de alto valor entrar</p>
+                            <button class="px-3 py-1 rounded small-text" style="background: ${surfaceColor}; color: ${actionPrimary};">
+                                Usar Template →
+                            </button>
+                        </div>
+
+                        <div class="p-6 rounded-lg card-hover cursor-pointer" style="background: white; border: 1px solid #e2e8f0;" onclick="createFromTemplate('scoring')">
+                            <div class="flex items-start justify-between mb-3">
+                                <span class="text-3xl">🎯</span>
+                                <span class="small-text px-2 py-1 rounded" style="background: ${surfaceColor}; color: ${textColor};">Avançado</span>
+                            </div>
+                            <h5 class="body-text font-semibold mb-2" style="color: ${textColor};">Lead Scoring</h5>
+                            <p class="small-text mb-3" style="color: #64748b;">Qualifique leads automaticamente baseado em ações</p>
+                            <button class="px-3 py-1 rounded small-text" style="background: ${surfaceColor}; color: ${actionPrimary};">
+                                Usar Template →
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <div>
+                    <h4 class="body-text font-semibold mb-4" style="color: ${textColor};">Suas Automações (${automations.length})</h4>
+                    <div class="space-y-4">
+                        ${automations.map(auto => `
+                            <div class="p-6 rounded-lg card-hover" style="background: white; border: 1px solid #e2e8f0;">
+                                <div class="flex items-start justify-between">
+                                    <div class="flex-1">
+                                        <div class="flex items-center gap-3 mb-2">
+                                            <h5 class="body-text font-semibold" style="color: ${textColor};">${auto.name}</h5>
+                                            <span class="small-text px-2 py-1 rounded" style="background: ${auto.status === 'active' ? '#d1fae5' : '#f3f4f6'}; color: ${auto.status === 'active' ? '#065f46' : '#6b7280'};">
+                                                ${auto.status === 'active' ? '✓ Ativa' : '○ Pausada'}
+                                            </span>
+                                        </div>
+                                        <p class="small-text mb-3" style="color: #64748b;">${auto.notes || 'Sem descrição'}</p>
+                                        <div class="flex items-center justify-between">
+                                            <span class="small-text" style="color: ${textColor};">
+                                                <strong>Gatilho:</strong> ${auto.trigger || 'Não definido'}
+                                            </span>
+                                            <span class="small-text" style="color: ${textColor};">
+                                                <strong>Ação:</strong> ${auto.action || 'Não definida'}
+                                            </span>
+                                        </div>
+                                        ${auto.action === 'Enviar WhatsApp' && auto.whatsapp_phone ? `
+                                            <div class="mt-2 p-3 rounded" style="background: #dcfce7; border: 1px solid #86efac;">
+                                                <p class="small-text mb-2" style="color: #14532d;">
+                                                    <strong>📱 WhatsApp:</strong> ${auto.whatsapp_phone}
+                                                </p>
+                                                ${auto.whatsapp_messages && auto.whatsapp_messages.length > 0 ? `
+                                                    <p class="small-text mb-1" style="color: #14532d;">
+                                                        <strong>🔄 Rotação:</strong> ${auto.whatsapp_messages.length} ${auto.whatsapp_messages.length === 1 ? 'mensagem' : 'mensagens'} alternadas
+                                                    </p>
+                                                ` : ''}
+                                                ${(() => {
+                                                    try {
+                                                        const attachments = auto.whatsapp_attachments ? JSON.parse(auto.whatsapp_attachments) : [];
+                                                        const hasAttachments = attachments.some(att => att.type);
+                                                        if (hasAttachments) {
+                                                            const types = attachments.filter(att => att.type).map(att => {
+                                                                const icons = {
+                                                                    'image': '🖼️',
+                                                                    'video': '🎥',
+                                                                    'document': '📄',
+                                                                    'audio': '🎵',
+                                                                    'location': '📍',
+                                                                    'contact': '👤'
+                                                                };
+                                                                return icons[att.type] || '📎';
+                                                            }).join(' ');
+                                                            return `
+                                                                <p class="small-text mb-1" style="color: #14532d;">
+                                                                    <strong>📎 Anexos:</strong> ${types}
+                                                                </p>
+                                                            `;
+                                                        }
+                                                    } catch (e) {}
+                                                    return '';
+                                                })()}
+                                                ${auto.enable_delays ? `
+                                                    <p class="small-text" style="color: #14532d;">
+                                                        <strong>⏱️ Anti-Bloqueio:</strong> Ativo • Atraso: ${auto.delay_before_min}-${auto.delay_before_max}s inicial • ${auto.delay_between_min}-${auto.delay_between_max}s entre envios • Limite: ${auto.messages_per_hour || '30'} msgs/hora
+                                                    </p>
+                                                ` : ''}
+                                            </div>
+                                        ` : ''}
+                                    </div>
+                                    <div class="flex gap-2 ml-4">
+                                        <button onclick="toggleAutomation('${auto.__backendId}')" class="px-3 py-1 rounded small-text" style="background: ${surfaceColor}; color: ${textColor};">
+                                            ${auto.status === 'active' ? 'Pausar' : 'Ativar'}
+                                        </button>
+                                        <button onclick="openEditAutomationModal('${auto.__backendId}')" class="px-3 py-1 rounded small-text" style="background: ${surfaceColor}; color: ${textColor};">
+                                            Editar
+                                        </button>
+                                        <button onclick="deleteAutomation('${auto.__backendId}')" class="px-3 py-1 rounded small-text" style="background: #fee2e2; color: #991b1b;">
+                                            Excluir
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        `).join('') || `
+                            <div class="p-12 rounded-lg text-center" style="background: white; border: 1px solid #e2e8f0;">
+                                <span class="text-6xl mb-4 block">⚡</span>
+                                <p class="body-text mb-2" style="color: ${textColor};">Nenhuma automação criada ainda</p>
+                                <p class="small-text mb-4" style="color: #64748b;">Comece com um template ou crie sua própria automação personalizada</p>
+                                <button onclick="openAutomationModal()" class="px-6 py-3 rounded-lg body-text font-medium" style="background: ${actionPrimary}; color: white;">
+                                    Criar Primeira Automação
+                                </button>
+                            </div>
+                        `}
+                    </div>
+                </div>
+
+                <div class="mt-8 p-6 rounded-lg" style="background: linear-gradient(135deg, ${primaryColor} 0%, #8b5cf6 100%);">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <h4 class="body-text font-semibold mb-2" style="color: white;">💡 Dica de Automação</h4>
+                            <p class="small-text" style="color: rgba(255,255,255,0.9);">Configure uma sequência de follow-up automática para aumentar suas taxas de conversão em até 35%</p>
+                        </div>
+                        <button onclick="createFromTemplate('followup')" class="px-4 py-2 rounded-lg body-text font-medium" style="background: white; color: ${primaryColor};">
+                            Configurar Agora
+                        </button>
+                    </div>
+                </div>
+            `;
+        }
+
+        function toggleWhatsAppConnection() {
+            if (whatsappConnected) {
+                disconnectWhatsApp();
+            } else {
+                connectWhatsApp();
+            }
+        }
+
+        function connectWhatsApp() {
+            const qrContainer = document.getElementById('whatsapp-qr-container');
+            const statusEl = document.getElementById('whatsapp-status');
+            const btnEl = document.getElementById('whatsapp-connect-btn');
+            
+            if (!qrContainer || !statusEl || !btnEl) return;
+
+            statusEl.textContent = '⏳ Gerando QR Code...';
+            statusEl.style.color = '#f59e0b';
+            qrContainer.style.display = 'block';
+
+            // Simular geração de QR Code
+            setTimeout(() => {
+                generateQRCode();
+                statusEl.textContent = '📱 Aguardando leitura do QR Code...';
+                
+                // Simular conexão após 5 segundos
+                setTimeout(() => {
+                    whatsappConnected = true;
+                    qrContainer.style.display = 'none';
+                    document.getElementById('whatsapp-connected-info').style.display = 'block';
+                    statusEl.textContent = '✅ Conectado e pronto para enviar';
+                    statusEl.style.color = '#10b981';
+                    btnEl.textContent = 'Desconectar';
+                    btnEl.style.background = '#fee2e2';
+                    btnEl.style.color = '#991b1b';
+                    showToast('WhatsApp conectado com sucesso!', 'success');
+                    
+                    // Atualizar contador de mensagens
+                    const msgCount = document.getElementById('messages-count');
+                    if (msgCount) msgCount.textContent = Math.floor(Math.random() * 50) + 10;
+                }, 5000);
+            }, 1000);
+        }
+
+        function disconnectWhatsApp() {
+            whatsappConnected = false;
+            const qrContainer = document.getElementById('whatsapp-qr-container');
+            const connectedInfo = document.getElementById('whatsapp-connected-info');
+            const statusEl = document.getElementById('whatsapp-status');
+            const btnEl = document.getElementById('whatsapp-connect-btn');
+            
+            if (qrContainer) qrContainer.style.display = 'none';
+            if (connectedInfo) connectedInfo.style.display = 'none';
+            
+            if (statusEl) {
+                statusEl.textContent = '⚪ Não conectado - Clique para conectar';
+                statusEl.style.color = '#64748b';
+            }
+            
+            if (btnEl) {
+                btnEl.textContent = '🔗 Conectar WhatsApp';
+                const config = window.elementSdk?.config || defaultConfig;
+                btnEl.style.background = config.action_primary || defaultConfig.action_primary;
+                btnEl.style.color = 'white';
+            }
+            
+            showToast('WhatsApp desconectado', 'success');
+        }
+
+        function generateQRCode() {
+            const canvas = document.getElementById('qr-canvas');
+            if (!canvas) return;
+            
+            const ctx = canvas.getContext('2d');
+            const config = window.elementSdk?.config || defaultConfig;
+            
+            // Limpar canvas
+            ctx.fillStyle = 'white';
+            ctx.fillRect(0, 0, 256, 256);
+            
+            // Desenhar QR Code simulado
+            const squareSize = 8;
+            const pattern = [
+                [1,1,1,1,1,1,1,0,1,0,1,0,1,1,1,1,1,1,1],
+                [1,0,0,0,0,0,1,0,0,1,0,1,1,0,0,0,0,0,1],
+                [1,0,1,1,1,0,1,0,1,1,1,0,1,0,1,1,1,0,1],
+                [1,0,1,1,1,0,1,0,0,0,1,1,1,0,1,1,1,0,1],
+                [1,0,1,1,1,0,1,0,1,0,0,1,1,0,1,1,1,0,1],
+                [1,0,0,0,0,0,1,0,1,1,0,0,1,0,0,0,0,0,1],
+                [1,1,1,1,1,1,1,0,1,0,1,0,1,1,1,1,1,1,1],
+                [0,0,0,0,0,0,0,0,0,1,1,0,0,0,0,0,0,0,0],
+                [1,0,1,0,1,1,1,1,0,0,1,1,0,1,0,1,1,0,1],
+                [0,1,0,1,0,0,0,0,1,1,0,1,1,0,1,0,0,1,0],
+                [1,1,1,0,1,0,1,1,1,0,1,0,0,1,1,0,1,1,1],
+                [0,0,0,1,0,1,0,0,0,1,0,1,1,0,0,1,0,0,0],
+                [1,0,1,0,1,0,1,1,0,1,1,0,0,1,0,1,1,0,1],
+                [0,0,0,0,0,0,0,0,1,0,1,1,0,1,0,0,1,1,0],
+                [1,1,1,1,1,1,1,0,0,1,0,0,1,0,1,0,0,1,1],
+                [1,0,0,0,0,0,1,0,1,0,1,1,0,1,0,1,1,0,0],
+                [1,0,1,1,1,0,1,0,0,1,1,0,1,1,1,0,1,1,1],
+                [1,0,1,1,1,0,1,0,1,0,0,1,0,0,0,1,0,0,1],
+                [1,1,1,1,1,1,1,0,0,1,1,0,1,1,1,0,1,1,0]
+            ];
+            
+            const offsetX = (256 - pattern[0].length * squareSize) / 2;
+            const offsetY = (256 - pattern.length * squareSize) / 2;
+            
+            ctx.fillStyle = '#000000';
+            for (let y = 0; y < pattern.length; y++) {
+                for (let x = 0; x < pattern[y].length; x++) {
+                    if (pattern[y][x] === 1) {
+                        ctx.fillRect(
+                            offsetX + x * squareSize,
+                            offsetY + y * squareSize,
+                            squareSize,
+                            squareSize
+                        );
+                    }
+                }
+            }
+        }
+
+        function openAutomationModal() {
+            if (allRecords.length >= 999) {
+                showToast('Limite de 999 registros atingido. Por favor, exclua alguns itens primeiro.', 'error');
+                return;
+            }
+
+            currentEditRecord = null;
+            renderAutomationModal();
+        }
+
+        function openEditAutomationModal(id) {
+            currentEditRecord = allRecords.find(r => r.__backendId === id);
+            if (!currentEditRecord) return;
+            renderAutomationModal();
+        }
+
+        function createFromTemplate(template) {
+            if (allRecords.length >= 999) {
+                showToast('Limite de 999 registros atingido. Por favor, exclua alguns itens primeiro.', 'error');
+                return;
+            }
+
+            const templates = {
+                'whatsapp': {
+                    name: 'Mensagem WhatsApp de Boas-vindas',
+                    trigger: 'Novo lead criado',
+                    action: 'Enviar WhatsApp',
+                    notes: 'Envie uma mensagem automática via WhatsApp quando um novo lead for criado',
+                    whatsapp_phone: '{phone}',
+                    whatsapp_message: 'Olá {nome}! 👋\n\nObrigado por se cadastrar na {empresa}!\n\nEm breve entraremos em contato com mais informações.\n\nQualquer dúvida, estamos à disposição! 😊',
+                    whatsapp_delay: '0'
+                },
+                'welcome': {
+                    name: 'Email de Boas-vindas',
+                    trigger: 'Novo lead criado',
+                    action: 'Enviar email',
+                    notes: 'Envie um email automaticamente quando um novo lead é adicionado ao CRM'
+                },
+                'followup': {
+                    name: 'Follow-up Automático',
+                    trigger: 'Lead sem resposta por 3 dias',
+                    action: 'Enviar email',
+                    notes: 'Acompanhamento automático para leads que não responderam'
+                },
+                'task': {
+                    name: 'Criar Tarefa Automática',
+                    trigger: 'Lead muda para "Qualificado"',
+                    action: 'Criar tarefa',
+                    notes: 'Crie automaticamente uma tarefa quando o lead for qualificado'
+                },
+                'notification': {
+                    name: 'Notificação de Equipe',
+                    trigger: 'Lead de alto valor criado (>R$50k)',
+                    action: 'Notificar equipe',
+                    notes: 'Alerte a equipe quando entrar um lead valioso'
+                },
+                'scoring': {
+                    name: 'Lead Scoring Automático',
+                    trigger: 'Lead executou ação importante',
+                    action: 'Atualizar campo',
+                    notes: 'Qualifique leads automaticamente baseado em comportamento'
+                }
+            };
+
+            currentEditRecord = null;
+            renderAutomationModal(templates[template]);
+        }
+
+        function renderAutomationModal(templateData = null) {
+            const config = window.elementSdk?.config || defaultConfig;
+            const primaryColor = config.primary_color || defaultConfig.primary_color;
+            const textColor = config.text_color || defaultConfig.text_color;
+            const actionPrimary = config.action_primary || defaultConfig.action_primary;
+
+            const isEdit = currentEditRecord !== null;
+            const data = currentEditRecord || templateData || {};
+
+            const existingModal = document.getElementById('modal');
+            if (existingModal) existingModal.remove();
+
+            const modalHTML = `
+                <div id="modal" class="modal-backdrop fixed inset-0 flex items-center justify-center p-4" style="z-index: 1000;">
+                    <div class="rounded-lg p-6 w-full max-w-2xl slide-in" style="background: white; max-height: 90%; overflow-y: auto;">
+                        <div class="flex items-center justify-between mb-6">
+                            <h3 class="subtitle-text font-semibold" style="color: ${textColor};">
+                                ${isEdit ? '✏️ Editar Automação' : '⚡ Nova Automação'}
+                            </h3>
+                            <button onclick="closeModal()" class="text-2xl" style="color: #64748b;">&times;</button>
+                        </div>
+
+                        <form id="automation-form" class="space-y-4">
+                            <div>
+                                <label class="block body-text mb-2" style="color: ${textColor};" for="auto-name">Nome da Automação</label>
+                                <input 
+                                    type="text" 
+                                    id="auto-name" 
+                                    required 
+                                    value="${data.name || ''}" 
+                                    placeholder="Ex: Email de Boas-vindas"
+                                    class="w-full p-3 rounded-lg border border-gray-300 body-text" 
+                                    style="color: ${textColor};">
+                            </div>
+
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div>
+                                    <label class="block body-text mb-2" style="color: ${textColor};" for="auto-trigger">Gatilho (Quando)</label>
+                                    <select id="auto-trigger" class="w-full p-3 rounded-lg border border-gray-300 body-text" style="color: ${textColor};">
+                                        <option value="Novo lead criado" ${data.trigger === 'Novo lead criado' ? 'selected' : ''}>Novo lead criado</option>
+                                        <option value="Lead muda de estágio" ${data.trigger === 'Lead muda de estágio' ? 'selected' : ''}>Lead muda de estágio</option>
+                                        <option value="Lead sem resposta por 3 dias" ${data.trigger === 'Lead sem resposta por 3 dias' ? 'selected' : ''}>Lead sem resposta por 3 dias</option>
+                                        <option value="Lead de alto valor criado (>R$50k)" ${data.trigger === 'Lead de alto valor criado (>R$50k)' ? 'selected' : ''}>Lead de alto valor (>R$50k)</option>
+                                        <option value="Tarefa com prazo em 24h" ${data.trigger === 'Tarefa com prazo em 24h' ? 'selected' : ''}>Tarefa com prazo em 24h</option>
+                                        <option value="Contato criado" ${data.trigger === 'Contato criado' ? 'selected' : ''}>Contato criado</option>
+                                    </select>
+                                </div>
+
+                                <div>
+                                    <label class="block body-text mb-2" style="color: ${textColor};" for="auto-action">Ação (O que fazer)</label>
+                                    <select id="auto-action" class="w-full p-3 rounded-lg border border-gray-300 body-text" style="color: ${textColor};" onchange="toggleWhatsAppFields()">
+                                        <option value="Enviar email" ${data.action === 'Enviar email' ? 'selected' : ''}>Enviar email</option>
+                                        <option value="Enviar WhatsApp" ${data.action === 'Enviar WhatsApp' ? 'selected' : ''}>📱 Enviar WhatsApp</option>
+                                        <option value="Criar tarefa" ${data.action === 'Criar tarefa' ? 'selected' : ''}>Criar tarefa</option>
+                                        <option value="Notificar equipe" ${data.action === 'Notificar equipe' ? 'selected' : ''}>Notificar equipe</option>
+                                        <option value="Atualizar campo" ${data.action === 'Atualizar campo' ? 'selected' : ''}>Atualizar campo</option>
+                                        <option value="Adicionar tag" ${data.action === 'Adicionar tag' ? 'selected' : ''}>Adicionar tag</option>
+                                    </select>
+                                </div>
+                            </div>
+
+                            <div id="whatsapp-fields" style="display: ${data.action === 'Enviar WhatsApp' ? 'block' : 'none'};">
+                                <div class="p-4 rounded-lg mb-4" style="background: #dcfce7; border: 1px solid #86efac;">
+                                    <p class="small-text mb-2" style="color: #14532d;">
+                                        <strong>📱 Configuração do WhatsApp (Baileys) - Sistema Anti-Bloqueio</strong>
+                                    </p>
+                                    <p class="small-text" style="color: #14532d;">
+                                        Use variáveis: <code>{nome}</code>, <code>{empresa}</code>, <code>{email}</code>, <code>{phone}</code><br>
+                                        <strong>�� Rotação:</strong> As mensagens serão alternadas automaticamente para cada lead
+                                    </p>
+                                </div>
+
+                                <div class="mb-4">
+                                    <label class="block body-text mb-2" style="color: ${textColor};" for="whatsapp-phone">Telefone de Destino</label>
+                                    <input 
+                                        type="text" 
+                                        id="whatsapp-phone" 
+                                        value="${data.whatsapp_phone || '{phone}'}" 
+                                        placeholder="Ex: {phone} ou +5511999999999"
+                                        class="w-full p-3 rounded-lg border border-gray-300 body-text" 
+                                        style="color: ${textColor};">
+                                    <p class="small-text mt-1" style="color: #64748b;">Use {phone} para enviar ao telefone do lead/contato</p>
+                                </div>
+
+                                <div class="mb-4">
+                                    <div class="flex items-center justify-between mb-3">
+                                        <label class="block body-text" style="color: ${textColor};">Mensagens para Rotação (até 5)</label>
+                                        <button type="button" onclick="addWhatsAppMessage()" class="px-3 py-1 rounded small-text" style="background: ${actionPrimary}; color: white;">
+                                            + Adicionar Mensagem
+                                        </button>
+                                    </div>
+                                    <div id="whatsapp-messages-container" class="space-y-3">
+                                        ${(() => {
+                                            const messages = data.whatsapp_messages || [data.whatsapp_message || ''];
+                                            let attachments = [];
+                                            try {
+                                                attachments = data.whatsapp_attachments ? 
+                                                    (typeof data.whatsapp_attachments === 'string' ? 
+                                                        JSON.parse(data.whatsapp_attachments) : 
+                                                        data.whatsapp_attachments) : 
+                                                    [];
+                                            } catch (e) {
+                                                attachments = [];
+                                            }
+                                            return messages.slice(0, 5).map((msg, index) => {
+                                                const attachment = attachments[index] || {};
+                                                return `
+                                                <div class="message-item p-3 rounded-lg" style="background: ${config.secondary_surface || defaultConfig.secondary_surface}; border: 1px solid #e2e8f0;">
+                                                    <div class="flex items-center justify-between mb-2">
+                                                        <span class="small-text font-semibold" style="color: ${textColor};">Mensagem ${index + 1}</span>
+                                                        ${index > 0 ? `<button type="button" onclick="removeWhatsAppMessage(${index})" class="small-text" style="color: #ef4444;">✕ Remover</button>` : ''}
+                                                    </div>
+                                                    <textarea 
+                                                        class="whatsapp-message-input w-full p-2 rounded border border-gray-300 body-text" 
+                                                        rows="4" 
+                                                        placeholder="Ex: Olá {nome}! Bem-vindo à {empresa}..."
+                                                        style="color: ${textColor};">${msg || ''}</textarea>
+                                                    
+                                                    <div class="mt-3 pt-3 border-t border-gray-300">
+                                                        <label class="block small-text font-semibold mb-2" style="color: ${textColor};">📎 Anexos (Opcional)</label>
+                                                        
+                                                        <div class="grid grid-cols-2 gap-2 mb-3">
+                                                            <button type="button" onclick="toggleAttachmentType(${index}, 'image')" class="attachment-type-btn p-2 rounded text-center small-text" data-type="image" data-index="${index}" style="background: ${attachment.type === 'image' ? actionPrimary : 'white'}; color: ${attachment.type === 'image' ? 'white' : textColor}; border: 1px solid #e2e8f0;">
+                                                                🖼️ Imagem
+                                                            </button>
+                                                            <button type="button" onclick="toggleAttachmentType(${index}, 'video')" class="attachment-type-btn p-2 rounded text-center small-text" data-type="video" data-index="${index}" style="background: ${attachment.type === 'video' ? actionPrimary : 'white'}; color: ${attachment.type === 'video' ? 'white' : textColor}; border: 1px solid #e2e8f0;">
+                                                                🎥 Vídeo
+                                                            </button>
+                                                            <button type="button" onclick="toggleAttachmentType(${index}, 'document')" class="attachment-type-btn p-2 rounded text-center small-text" data-type="document" data-index="${index}" style="background: ${attachment.type === 'document' ? actionPrimary : 'white'}; color: ${attachment.type === 'document' ? 'white' : textColor}; border: 1px solid #e2e8f0;">
+                                                                📄 Documento
+                                                            </button>
+                                                            <button type="button" onclick="toggleAttachmentType(${index}, 'audio')" class="attachment-type-btn p-2 rounded text-center small-text" data-type="audio" data-index="${index}" style="background: ${attachment.type === 'audio' ? actionPrimary : 'white'}; color: ${attachment.type === 'audio' ? 'white' : textColor}; border: 1px solid #e2e8f0;">
+                                                                🎵 Áudio
+                                                            </button>
+                                                            <button type="button" onclick="toggleAttachmentType(${index}, 'location')" class="attachment-type-btn p-2 rounded text-center small-text" data-type="location" data-index="${index}" style="background: ${attachment.type === 'location' ? actionPrimary : 'white'}; color: ${attachment.type === 'location' ? 'white' : textColor}; border: 1px solid #e2e8f0;">
+                                                                📍 Localização
+                                                            </button>
+                                                            <button type="button" onclick="toggleAttachmentType(${index}, 'contact')" class="attachment-type-btn p-2 rounded text-center small-text" data-type="contact" data-index="${index}" style="background: ${attachment.type === 'contact' ? actionPrimary : 'white'}; color: ${attachment.type === 'contact' ? 'white' : textColor}; border: 1px solid #e2e8f0;">
+                                                                👤 Contato
+                                                            </button>
+                                                        </div>
+
+                                                        <div class="attachment-fields-${index}" style="display: ${attachment.type ? 'block' : 'none'};">
+                                                            ${attachment.type === 'image' || attachment.type === 'video' || attachment.type === 'document' || attachment.type === 'audio' ? `
+                                                                <div class="space-y-2">
+                                                                    <input 
+                                                                        type="text" 
+                                                                        class="attachment-url w-full p-2 rounded border border-gray-300 small-text" 
+                                                                        placeholder="URL do arquivo (https://...)"
+                                                                        value="${attachment.url || ''}"
+                                                                        style="color: ${textColor};">
+                                                                    <p class="small-text" style="color: #ef4444;">
+                                                                        ⚠️ Limites WhatsApp: 
+                                                                        ${attachment.type === 'image' ? 'Imagem até 5MB (JPG, PNG)' : 
+                                                                          attachment.type === 'video' ? 'Vídeo até 16MB (MP4, 3GP)' : 
+                                                                          attachment.type === 'audio' ? 'Áudio até 16MB (MP3, OGG)' : 
+                                                                          'Documento até 100MB (PDF, DOC, etc)'}
+                                                                    </p>
+                                                                    ${attachment.type === 'image' || attachment.type === 'video' || attachment.type === 'document' ? `
+                                                                        <input 
+                                                                            type="text" 
+                                                                            class="attachment-caption w-full p-2 rounded border border-gray-300 small-text" 
+                                                                            placeholder="Legenda (opcional)"
+                                                                            value="${attachment.caption || ''}"
+                                                                            style="color: ${textColor};">
+                                                                    ` : ''}
+                                                                </div>
+                                                            ` : attachment.type === 'location' ? `
+                                                                <div class="space-y-2">
+                                                                    <input 
+                                                                        type="text" 
+                                                                        class="attachment-latitude w-full p-2 rounded border border-gray-300 small-text" 
+                                                                        placeholder="Latitude (ex: -23.5505)"
+                                                                        value="${attachment.latitude || ''}"
+                                                                        style="color: ${textColor};">
+                                                                    <input 
+                                                                        type="text" 
+                                                                        class="attachment-longitude w-full p-2 rounded border border-gray-300 small-text" 
+                                                                        placeholder="Longitude (ex: -46.6333)"
+                                                                        value="${attachment.longitude || ''}"
+                                                                        style="color: ${textColor};">
+                                                                    <input 
+                                                                        type="text" 
+                                                                        class="attachment-location-name w-full p-2 rounded border border-gray-300 small-text" 
+                                                                        placeholder="Nome do local (opcional)"
+                                                                        value="${attachment.locationName || ''}"
+                                                                        style="color: ${textColor};">
+                                                                    <input 
+                                                                        type="text" 
+                                                                        class="attachment-location-address w-full p-2 rounded border border-gray-300 small-text" 
+                                                                        placeholder="Endereço (opcional)"
+                                                                        value="${attachment.address || ''}"
+                                                                        style="color: ${textColor};">
+                                                                </div>
+                                                            ` : attachment.type === 'contact' ? `
+                                                                <div class="space-y-2">
+                                                                    <input 
+                                                                        type="text" 
+                                                                        class="attachment-contact-name w-full p-2 rounded border border-gray-300 small-text" 
+                                                                        placeholder="Nome completo"
+                                                                        value="${attachment.contactName || ''}"
+                                                                        style="color: ${textColor};">
+                                                                    <input 
+                                                                        type="text" 
+                                                                        class="attachment-contact-phone w-full p-2 rounded border border-gray-300 small-text" 
+                                                                        placeholder="Telefone (ex: +5511999999999)"
+                                                                        value="${attachment.contactPhone || ''}"
+                                                                        style="color: ${textColor};">
+                                                                    <input 
+                                                                        type="text" 
+                                                                        class="attachment-contact-email w-full p-2 rounded border border-gray-300 small-text" 
+                                                                        placeholder="Email (opcional)"
+                                                                        value="${attachment.contactEmail || ''}"
+                                                                        style="color: ${textColor};">
+                                                                </div>
+                                                            ` : ''}
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            `}).join('');
+                                        })()}
+                                    </div>
+                                    <p class="small-text mt-2" style="color: #64748b;">
+                                        💡 As mensagens serão enviadas alternadamente: Lead 1 recebe Mensagem 1, Lead 2 recebe Mensagem 2, e assim por diante
+                                    </p>
+                                </div>
+
+                                <div class="mb-4 p-4 rounded-lg" style="background: #fef3c7; border: 1px solid #fde68a;">
+                                    <div class="flex items-center gap-2 mb-3">
+                                        <input 
+                                            type="checkbox" 
+                                            id="enable-delays" 
+                                            ${data.enable_delays ? 'checked' : ''}
+                                            onchange="toggleDelayFields()"
+                                            class="w-4 h-4">
+                                        <label class="body-text font-semibold" style="color: #78350f;" for="enable-delays">
+                                            ⏱️ Configuração de Atraso (Anti-Bloqueio)
+                                        </label>
+                                    </div>
+                                    
+                                    <div id="delay-fields" style="display: ${data.enable_delays ? 'block' : 'none'};">
+                                        <p class="small-text mb-3" style="color: #92400e;">
+                                            Configure intervalos aleatórios entre o envio de mensagens para evitar detecção como spam
+                                        </p>
+                                        
+                                        <div class="grid grid-cols-1 md:grid-cols-2 gap-3 mb-3">
+                                            <div>
+                                                <label class="block small-text mb-1" style="color: #78350f;">Aguardar antes do envio (segundos)</label>
+                                                <div class="flex items-center gap-2">
+                                                    <input 
+                                                        type="number" 
+                                                        id="delay-before-min" 
+                                                        min="0" 
+                                                        value="${data.delay_before_min || '15'}" 
+                                                        class="w-full p-2 rounded border border-gray-300 small-text" 
+                                                        style="color: ${textColor};"
+                                                        placeholder="Mín">
+                                                    <span class="small-text" style="color: #78350f;">a</span>
+                                                    <input 
+                                                        type="number" 
+                                                        id="delay-before-max" 
+                                                        min="0" 
+                                                        value="${data.delay_before_max || '30'}" 
+                                                        class="w-full p-2 rounded border border-gray-300 small-text" 
+                                                        style="color: ${textColor};"
+                                                        placeholder="Máx">
+                                                </div>
+                                                <p class="small-text mt-1" style="color: #92400e;">Ex: aguarda entre 15 a 30 segundos</p>
+                                            </div>
+
+                                            <div>
+                                                <label class="block small-text mb-1" style="color: #78350f;">Intervalo entre mensagens (segundos)</label>
+                                                <div class="flex items-center gap-2">
+                                                    <input 
+                                                        type="number" 
+                                                        id="delay-between-min" 
+                                                        min="0" 
+                                                        value="${data.delay_between_min || '20'}" 
+                                                        class="w-full p-2 rounded border border-gray-300 small-text" 
+                                                        style="color: ${textColor};"
+                                                        placeholder="Mín">
+                                                    <span class="small-text" style="color: #78350f;">a</span>
+                                                    <input 
+                                                        type="number" 
+                                                        id="delay-between-max" 
+                                                        min="0" 
+                                                        value="${data.delay_between_max || '45'}" 
+                                                        class="w-full p-2 rounded border border-gray-300 small-text" 
+                                                        style="color: ${textColor};"
+                                                        placeholder="Máx">
+                                                </div>
+                                                <p class="small-text mt-1" style="color: #92400e;">Ex: aguarda entre 20 a 45 segundos após cada envio</p>
+                                            </div>
+                                        </div>
+
+                                        <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                            <div>
+                                                <label class="block small-text mb-1" style="color: #78350f;">Variação adicional aleatória (segundos)</label>
+                                                <div class="flex items-center gap-2">
+                                                    <input 
+                                                        type="number" 
+                                                        id="delay-random-min" 
+                                                        min="0" 
+                                                        value="${data.delay_random_min || '4'}" 
+                                                        class="w-full p-2 rounded border border-gray-300 small-text" 
+                                                        style="color: ${textColor};"
+                                                        placeholder="Mín">
+                                                    <span class="small-text" style="color: #78350f;">a</span>
+                                                    <input 
+                                                        type="number" 
+                                                        id="delay-random-max" 
+                                                        min="0" 
+                                                        value="${data.delay_random_max || '8'}" 
+                                                        class="w-full p-2 rounded border border-gray-300 small-text" 
+                                                        style="color: ${textColor};"
+                                                        placeholder="Máx">
+                                                </div>
+                                                <p class="small-text mt-1" style="color: #92400e;">Adiciona +4 a +8s extras de forma aleatória</p>
+                                            </div>
+
+                                            <div>
+                                                <label class="block small-text mb-1" style="color: #78350f;">Limite de mensagens por hora</label>
+                                                <input 
+                                                    type="number" 
+                                                    id="messages-per-hour" 
+                                                    min="1" 
+                                                    max="100" 
+                                                    value="${data.messages_per_hour || '30'}" 
+                                                    class="w-full p-2 rounded border border-gray-300 small-text" 
+                                                    style="color: ${textColor};"
+                                                    placeholder="Ex: 30">
+                                                <p class="small-text mt-1" style="color: #92400e;">Máximo de envios por hora (recomendado: 20-40)</p>
+                                            </div>
+                                        </div>
+
+                                        <div class="mt-3 p-3 rounded" style="background: white; border: 1px solid #fde68a;">
+                                            <p class="small-text font-semibold mb-2" style="color: #78350f;">🎯 Exemplo de funcionamento:</p>
+                                            <p class="small-text" style="color: #92400e;">
+                                                1. Sistema aguarda <strong>15-30s</strong> antes de iniciar<br>
+                                                2. Envia primeira mensagem ao Lead 1<br>
+                                                3. Aguarda <strong>20-45s + 4-8s aleatório</strong> (total: 24-53s)<br>
+                                                4. Envia segunda mensagem ao Lead 2<br>
+                                                5. Repete o processo respeitando o limite de 30 msgs/hora
+                                            </p>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div class="p-3 rounded-lg" style="background: #fee2e2; border: 1px solid #fecaca;">
+                                    <p class="small-text" style="color: #991b1b;">
+                                        <strong>⚠️ Importante:</strong> Intervalos muito curtos ou alto volume de mensagens podem resultar em bloqueio temporário ou permanente da sua conta WhatsApp. Use configurações conservadoras.
+                                    </p>
+                                </div>
+                            </div>
+
+                            <div>
+                                <label class="block body-text mb-2" style="color: ${textColor};" for="auto-notes">Descrição</label>
+                                <textarea 
+                                    id="auto-notes" 
+                                    rows="3" 
+                                    placeholder="Descreva o que essa automação faz..."
+                                    class="w-full p-3 rounded-lg border border-gray-300 body-text" 
+                                    style="color: ${textColor};">${data.notes || ''}</textarea>
+                            </div>
+
+                            <div class="p-4 rounded-lg" style="background: #f0f9ff; border: 1px solid #bae6fd;">
+                                <p class="small-text" style="color: #0c4a6e;">
+                                    <strong>💡 Como funciona:</strong> Quando o gatilho selecionado acontecer, a ação será executada automaticamente. Você pode ativar ou pausar automações a qualquer momento.
+                                </p>
+                            </div>
+
+                            <div class="flex gap-3 pt-4">
+                                ${isEdit ? `
+                                    <button type="button" onclick="deleteAutomation('${data.__backendId}')" class="px-4 py-2 rounded-lg body-text" style="background: #fee2e2; color: #991b1b;">
+                                        Excluir
+                                    </button>
+                                ` : ''}
+                                <button type="button" onclick="closeModal()" class="flex-1 px-4 py-2 rounded-lg body-text" style="background: #f1f5f9; color: ${textColor};">
+                                    Cancelar
+                                </button>
+                                <button type="submit" class="flex-1 px-4 py-2 rounded-lg body-text font-medium" style="background: ${actionPrimary}; color: white;">
+                                    ${isEdit ? 'Salvar Alterações' : 'Criar Automação'}
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            `;
+
+            document.body.insertAdjacentHTML('beforeend', modalHTML);
+
+            document.getElementById('automation-form').addEventListener('submit', async (e) => {
+                e.preventDefault();
+                await saveAutomation();
+            });
+        }
+
+        function toggleWhatsAppFields() {
+            const action = document.getElementById('auto-action').value;
+            const whatsappFields = document.getElementById('whatsapp-fields');
+            if (whatsappFields) {
+                whatsappFields.style.display = action === 'Enviar WhatsApp' ? 'block' : 'none';
+            }
+        }
+
+        function toggleDelayFields() {
+            const checkbox = document.getElementById('enable-delays');
+            const delayFields = document.getElementById('delay-fields');
+            if (delayFields) {
+                delayFields.style.display = checkbox.checked ? 'block' : 'none';
+            }
+        }
+
+        function toggleAttachmentType(index, type) {
+            const config = window.elementSdk?.config || defaultConfig;
+            const actionPrimary = config.action_primary || defaultConfig.action_primary;
+            const textColor = config.text_color || defaultConfig.text_color;
+            const surfaceColor = config.secondary_surface || defaultConfig.secondary_surface;
+
+            // Atualizar botões visuais
+            const buttons = document.querySelectorAll(`[data-index="${index}"].attachment-type-btn`);
+            buttons.forEach(btn => {
+                const btnType = btn.getAttribute('data-type');
+                if (btnType === type) {
+                    // Se já está selecionado, desselecionar
+                    if (btn.style.background === actionPrimary || btn.style.background.includes('rgb')) {
+                        btn.style.background = 'white';
+                        btn.style.color = textColor;
+                        document.querySelector(`.attachment-fields-${index}`).style.display = 'none';
+                    } else {
+                        // Selecionar este tipo
+                        btn.style.background = actionPrimary;
+                        btn.style.color = 'white';
+                        renderAttachmentFields(index, type);
+                    }
+                } else {
+                    // Desselecionar outros
+                    btn.style.background = 'white';
+                    btn.style.color = textColor;
+                }
+            });
+        }
+
+        function renderAttachmentFields(index, type) {
+            const config = window.elementSdk?.config || defaultConfig;
+            const textColor = config.text_color || defaultConfig.text_color;
+            const fieldsContainer = document.querySelector(`.attachment-fields-${index}`);
+            
+            if (!fieldsContainer) return;
+
+            fieldsContainer.style.display = 'block';
+
+            let html = '';
+
+            if (type === 'image' || type === 'video' || type === 'document' || type === 'audio') {
+                const limits = {
+                    'image': 'Imagem até 5MB (JPG, PNG)',
+                    'video': 'Vídeo até 16MB (MP4, 3GP)',
+                    'audio': 'Áudio até 16MB (MP3, OGG)',
+                    'document': 'Documento até 100MB (PDF, DOC, etc)'
+                };
+
+                html = `
+                    <div class="space-y-2">
+                        <input 
+                            type="text" 
+                            class="attachment-url w-full p-2 rounded border border-gray-300 small-text" 
+                            placeholder="URL do arquivo (https://...)"
+                            style="color: ${textColor};">
+                        <p class="small-text" style="color: #ef4444;">
+                            ⚠️ Limites WhatsApp: ${limits[type]}
+                        </p>
+                        ${type !== 'audio' ? `
+                            <input 
+                                type="text" 
+                                class="attachment-caption w-full p-2 rounded border border-gray-300 small-text" 
+                                placeholder="Legenda (opcional)"
+                                style="color: ${textColor};">
+                        ` : ''}
+                    </div>
+                `;
+            } else if (type === 'location') {
+                html = `
+                    <div class="space-y-2">
+                        <input 
+                            type="text" 
+                            class="attachment-latitude w-full p-2 rounded border border-gray-300 small-text" 
+                            placeholder="Latitude (ex: -23.5505)"
+                            style="color: ${textColor};">
+                        <input 
+                            type="text" 
+                            class="attachment-longitude w-full p-2 rounded border border-gray-300 small-text" 
+                            placeholder="Longitude (ex: -46.6333)"
+                            style="color: ${textColor};">
+                        <input 
+                            type="text" 
+                            class="attachment-location-name w-full p-2 rounded border border-gray-300 small-text" 
+                            placeholder="Nome do local (opcional)"
+                            style="color: ${textColor};">
+                        <input 
+                            type="text" 
+                            class="attachment-location-address w-full p-2 rounded border border-gray-300 small-text" 
+                            placeholder="Endereço (opcional)"
+                            style="color: ${textColor};">
+                        <p class="small-text" style="color: #64748b;">
+                            💡 Dica: Use Google Maps para obter coordenadas precisas
+                        </p>
+                    </div>
+                `;
+            } else if (type === 'contact') {
+                html = `
+                    <div class="space-y-2">
+                        <input 
+                            type="text" 
+                            class="attachment-contact-name w-full p-2 rounded border border-gray-300 small-text" 
+                            placeholder="Nome completo"
+                            style="color: ${textColor};">
+                        <input 
+                            type="text" 
+                            class="attachment-contact-phone w-full p-2 rounded border border-gray-300 small-text" 
+                            placeholder="Telefone (ex: +5511999999999)"
+                            style="color: ${textColor};">
+                        <input 
+                            type="text" 
+                            class="attachment-contact-email w-full p-2 rounded border border-gray-300 small-text" 
+                            placeholder="Email (opcional)"
+                            style="color: ${textColor};">
+                        <p class="small-text" style="color: #64748b;">
+                            💡 O contato será compartilhado como vCard (.vcf)
+                        </p>
+                    </div>
+                `;
+            }
+
+            fieldsContainer.innerHTML = html;
+        }
+
+        function addWhatsAppMessage() {
+            const container = document.getElementById('whatsapp-messages-container');
+            if (!container) return;
+
+            const messageItems = container.querySelectorAll('.message-item');
+            if (messageItems.length >= 5) {
+                showToast('Máximo de 5 mensagens permitido', 'error');
+                return;
+            }
+
+            const config = window.elementSdk?.config || defaultConfig;
+            const textColor = config.text_color || defaultConfig.text_color;
+            const surfaceColor = config.secondary_surface || defaultConfig.secondary_surface;
+            const actionPrimary = config.action_primary || defaultConfig.action_primary;
+            const index = messageItems.length;
+
+            const newMessageHTML = `
+                <div class="message-item p-3 rounded-lg" style="background: ${surfaceColor}; border: 1px solid #e2e8f0;">
+                    <div class="flex items-center justify-between mb-2">
+                        <span class="small-text font-semibold" style="color: ${textColor};">Mensagem ${index + 1}</span>
+                        <button type="button" onclick="removeWhatsAppMessage(${index})" class="small-text" style="color: #ef4444;">✕ Remover</button>
+                    </div>
+                    <textarea 
+                        class="whatsapp-message-input w-full p-2 rounded border border-gray-300 body-text" 
+                        rows="4" 
+                        placeholder="Ex: Olá {nome}! Bem-vindo à {empresa}..."
+                        style="color: ${textColor};"></textarea>
+                    
+                    <div class="mt-3 pt-3 border-t border-gray-300">
+                        <label class="block small-text font-semibold mb-2" style="color: ${textColor};">📎 Anexos (Opcional)</label>
+                        
+                        <div class="grid grid-cols-2 gap-2 mb-3">
+                            <button type="button" onclick="toggleAttachmentType(${index}, 'image')" class="attachment-type-btn p-2 rounded text-center small-text" data-type="image" data-index="${index}" style="background: white; color: ${textColor}; border: 1px solid #e2e8f0;">
+                                🖼️ Imagem
+                            </button>
+                            <button type="button" onclick="toggleAttachmentType(${index}, 'video')" class="attachment-type-btn p-2 rounded text-center small-text" data-type="video" data-index="${index}" style="background: white; color: ${textColor}; border: 1px solid #e2e8f0;">
+                                🎥 Vídeo
+                            </button>
+                            <button type="button" onclick="toggleAttachmentType(${index}, 'document')" class="attachment-type-btn p-2 rounded text-center small-text" data-type="document" data-index="${index}" style="background: white; color: ${textColor}; border: 1px solid #e2e8f0;">
+                                📄 Documento
+                            </button>
+                            <button type="button" onclick="toggleAttachmentType(${index}, 'audio')" class="attachment-type-btn p-2 rounded text-center small-text" data-type="audio" data-index="${index}" style="background: white; color: ${textColor}; border: 1px solid #e2e8f0;">
+                                🎵 Áudio
+                            </button>
+                            <button type="button" onclick="toggleAttachmentType(${index}, 'location')" class="attachment-type-btn p-2 rounded text-center small-text" data-type="location" data-index="${index}" style="background: white; color: ${textColor}; border: 1px solid #e2e8f0;">
+                                📍 Localização
+                            </button>
+                            <button type="button" onclick="toggleAttachmentType(${index}, 'contact')" class="attachment-type-btn p-2 rounded text-center small-text" data-type="contact" data-index="${index}" style="background: white; color: ${textColor}; border: 1px solid #e2e8f0;">
+                                👤 Contato
+                            </button>
+                        </div>
+
+                        <div class="attachment-fields-${index}" style="display: none;"></div>
+                    </div>
+                </div>
+            `;
+
+            container.insertAdjacentHTML('beforeend', newMessageHTML);
+        }
+
+        function removeWhatsAppMessage(index) {
+            const container = document.getElementById('whatsapp-messages-container');
+            if (!container) return;
+
+            const messageItems = container.querySelectorAll('.message-item');
+            if (messageItems.length <= 1) {
+                showToast('É necessário ter pelo menos 1 mensagem', 'error');
+                return;
+            }
+
+            if (messageItems[index]) {
+                messageItems[index].remove();
+                updateMessageNumbers();
+            }
+        }
+
+        function updateMessageNumbers() {
+            const container = document.getElementById('whatsapp-messages-container');
+            if (!container) return;
+
+            const config = window.elementSdk?.config || defaultConfig;
+            const textColor = config.text_color || defaultConfig.text_color;
+
+            const messageItems = container.querySelectorAll('.message-item');
+            messageItems.forEach((item, index) => {
+                const label = item.querySelector('.small-text');
+                if (label) {
+                    const removeBtn = item.querySelector('button');
+                    label.innerHTML = `Mensagem ${index + 1}`;
+                    
+                    if (removeBtn) {
+                        removeBtn.setAttribute('onclick', `removeWhatsAppMessage(${index})`);
+                    }
+                }
+            });
+        }
+
+        async function saveAutomation() {
+            if (allRecords.length >= 999 && !currentEditRecord) {
+                showToast('Limite de 999 registros atingido. Por favor, exclua alguns itens primeiro.', 'error');
+                return;
+            }
+
+            const action = document.getElementById('auto-action').value;
+            const formData = {
+                type: 'automation',
+                name: document.getElementById('auto-name').value,
+                trigger: document.getElementById('auto-trigger').value,
+                action: action,
+                notes: document.getElementById('auto-notes').value,
+                status: currentEditRecord?.status || 'active',
+                updatedAt: new Date().toISOString()
+            };
+
+            if (action === 'Enviar WhatsApp') {
+                formData.whatsapp_phone = document.getElementById('whatsapp-phone')?.value || '';
+                
+                // Coletar todas as mensagens
+                const messageInputs = document.querySelectorAll('.whatsapp-message-input');
+                const messages = Array.from(messageInputs)
+                    .map(input => input.value.trim())
+                    .filter(msg => msg.length > 0);
+                
+                if (messages.length === 0) {
+                    showToast('É necessário ter pelo menos 1 mensagem configurada', 'error');
+                    return;
+                }
+                
+                formData.whatsapp_messages = messages;
+                
+                // Coletar anexos para cada mensagem
+                const attachments = [];
+                const messageItems = document.querySelectorAll('.message-item');
+                
+                messageItems.forEach((item, index) => {
+                    const fieldsContainer = item.querySelector(`.attachment-fields-${index}`);
+                    if (!fieldsContainer || fieldsContainer.style.display === 'none') {
+                        attachments.push({});
+                        return;
+                    }
+
+                    const attachment = {};
+                    
+                    // Detectar tipo baseado nos botões selecionados
+                    const selectedBtn = item.querySelector(`[data-index="${index}"].attachment-type-btn[style*="rgb"]`);
+                    if (selectedBtn) {
+                        attachment.type = selectedBtn.getAttribute('data-type');
+                        
+                        if (attachment.type === 'image' || attachment.type === 'video' || 
+                            attachment.type === 'document' || attachment.type === 'audio') {
+                            const urlInput = fieldsContainer.querySelector('.attachment-url');
+                            const captionInput = fieldsContainer.querySelector('.attachment-caption');
+                            
+                            if (urlInput && urlInput.value) {
+                                attachment.url = urlInput.value.trim();
+                                if (captionInput) attachment.caption = captionInput.value.trim();
+                            }
+                        } else if (attachment.type === 'location') {
+                            const latInput = fieldsContainer.querySelector('.attachment-latitude');
+                            const lngInput = fieldsContainer.querySelector('.attachment-longitude');
+                            const nameInput = fieldsContainer.querySelector('.attachment-location-name');
+                            const addressInput = fieldsContainer.querySelector('.attachment-location-address');
+                            
+                            if (latInput && lngInput && latInput.value && lngInput.value) {
+                                attachment.latitude = latInput.value.trim();
+                                attachment.longitude = lngInput.value.trim();
+                                if (nameInput) attachment.locationName = nameInput.value.trim();
+                                if (addressInput) attachment.address = addressInput.value.trim();
+                            }
+                        } else if (attachment.type === 'contact') {
+                            const nameInput = fieldsContainer.querySelector('.attachment-contact-name');
+                            const phoneInput = fieldsContainer.querySelector('.attachment-contact-phone');
+                            const emailInput = fieldsContainer.querySelector('.attachment-contact-email');
+                            
+                            if (nameInput && phoneInput && nameInput.value && phoneInput.value) {
+                                attachment.contactName = nameInput.value.trim();
+                                attachment.contactPhone = phoneInput.value.trim();
+                                if (emailInput) attachment.contactEmail = emailInput.value.trim();
+                            }
+                        }
+                    }
+                    
+                    attachments.push(attachment);
+                });
+                
+                formData.whatsapp_attachments = JSON.stringify(attachments);
+                
+                // Configurações de atraso
+                const enableDelays = document.getElementById('enable-delays')?.checked || false;
+                formData.enable_delays = enableDelays;
+                
+                if (enableDelays) {
+                    formData.delay_before_min = document.getElementById('delay-before-min')?.value || '15';
+                    formData.delay_before_max = document.getElementById('delay-before-max')?.value || '30';
+                    formData.delay_between_min = document.getElementById('delay-between-min')?.value || '20';
+                    formData.delay_between_max = document.getElementById('delay-between-max')?.value || '45';
+                    formData.delay_random_min = document.getElementById('delay-random-min')?.value || '4';
+                    formData.delay_random_max = document.getElementById('delay-random-max')?.value || '8';
+                    formData.messages_per_hour = document.getElementById('messages-per-hour')?.value || '30';
+                }
+            }
+
+            const submitButton = document.querySelector('#automation-form button[type="submit"]');
+            submitButton.disabled = true;
+            submitButton.textContent = 'Salvando...';
+
+            let result;
+            if (currentEditRecord) {
+                result = await window.dataSdk.update({ ...currentEditRecord, ...formData });
+            } else {
+                result = await window.dataSdk.create({
+                    ...formData,
+                    id: `automation_${Date.now()}`,
+                    createdAt: new Date().toISOString()
+                });
+            }
+
+            if (result.isOk) {
+                showToast(currentEditRecord ? 'Automação atualizada com sucesso!' : 'Automação criada e ativada!', 'success');
+                closeModal();
+                changeView('automation');
+            } else {
+                showToast('Erro ao salvar automação', 'error');
+                submitButton.disabled = false;
+                submitButton.textContent = currentEditRecord ? 'Salvar Alterações' : 'Criar Automação';
+            }
+        }
+
+        async function toggleAutomation(id) {
+            const automation = allRecords.find(r => r.__backendId === id);
+            if (!automation) return;
+
+            const newStatus = automation.status === 'active' ? 'inactive' : 'active';
+            const updatedAutomation = { ...automation, status: newStatus, updatedAt: new Date().toISOString() };
+
+            const result = await window.dataSdk.update(updatedAutomation);
+
+            if (result.isOk) {
+                showToast(newStatus === 'active' ? 'Automação ativada!' : 'Automação pausada', 'success');
+            } else {
+                showToast('Erro ao alterar status', 'error');
+            }
+        }
+
+        async function deleteAutomation(id) {
+            const automation = allRecords.find(r => r.__backendId === id);
+            if (!automation) return;
+
+            const deleteButton = event.target;
+            deleteButton.disabled = true;
+            deleteButton.textContent = 'Excluindo...';
+
+            const result = await window.dataSdk.delete(automation);
+
+            if (result.isOk) {
+                showToast('Automação excluída com sucesso', 'success');
+                closeModal();
+                changeView('automation');
+            } else {
+                showToast('Erro ao excluir automação', 'error');
+                deleteButton.disabled = false;
+                deleteButton.textContent = 'Excluir';
+            }
+        }
+
+        initializeApp();
+    </script>
+ <script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'9b7a71c8212ec6c1',t:'MTc2NzM1ODg4MC4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
+</html>
